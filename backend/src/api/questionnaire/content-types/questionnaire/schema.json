@@ -1,0 +1,48 @@
+{
+  "kind": "collectionType",
+  "collectionName": "questionnaires",
+  "info": {
+    "singularName": "questionnaire",
+    "pluralName": "questionnaires",
+    "displayName": "Опросник",
+    "description": "Опросник (трейсер): набор критериев и тип субъекта оценки"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "slug": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "subjectType": {
+      "type": "enumeration",
+      "enum": ["department", "employee"],
+      "required": true,
+      "default": "employee"
+    },
+    "description": {
+      "type": "text"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    },
+    "order": {
+      "type": "integer",
+      "default": 0
+    },
+    "criteria": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::criterion.criterion",
+      "mappedBy": "questionnaire"
+    }
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "kind": "collectionType",
+  "collectionName": "tracer_subjects",
+  "info": {
+    "singularName": "tracer-subject",
+    "pluralName": "tracer-subjects",
+    "displayName": "Субъект трейсера",
+    "description": "Оцениваемый субъект (сотрудник или подразделение) в рамках сессии трейсера"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "session": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::tracer-session.tracer-session",
+      "inversedBy": "subjects"
+    },
+    "employee": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::employee.employee"
+    },
+    "label": {
+      "type": "string"
+    },
+    "positionSnapshot": {
+      "type": "string"
+    },
+    "departmentSnapshot": {
+      "type": "string"
+    },
+    "answers": {
+      "type": "json"
+    },
+    "notes": {
+      "type": "json"
+    },
+    "scorePercent": {
+      "type": "decimal"
+    }
+  }
+}

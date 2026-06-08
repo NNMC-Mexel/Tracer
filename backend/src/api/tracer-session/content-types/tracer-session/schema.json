@@ -1,0 +1,67 @@
+{
+  "kind": "collectionType",
+  "collectionName": "tracer_sessions",
+  "info": {
+    "singularName": "tracer-session",
+    "pluralName": "tracer-sessions",
+    "displayName": "Трейсер (сессия)",
+    "description": "Проведённый трейсер: опросник, отделение, аудитор, дата и субъекты оценки"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "questionnaire": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::questionnaire.questionnaire"
+    },
+    "organization": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::organization.organization"
+    },
+    "department": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::department.department"
+    },
+    "date": {
+      "type": "date"
+    },
+    "time": {
+      "type": "string"
+    },
+    "auditor": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    },
+    "auditorName": {
+      "type": "string"
+    },
+    "note": {
+      "type": "text"
+    },
+    "criteriaSnapshot": {
+      "type": "json"
+    },
+    "participants": {
+      "type": "json"
+    },
+    "scorePercent": {
+      "type": "decimal"
+    },
+    "complianceLevel": {
+      "type": "enumeration",
+      "enum": ["high", "medium", "low"]
+    },
+    "subjects": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::tracer-subject.tracer-subject",
+      "mappedBy": "session"
+    }
+  }
+}

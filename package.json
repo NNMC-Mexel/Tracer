@@ -1,0 +1,19 @@
+{
+  "name": "tracer-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Система цифрового мониторинга соблюдения гигиены рук (трейсеры)",
+  "scripts": {
+    "dev:backend": "npm --prefix backend run develop",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev": "concurrently -n backend,frontend -c blue,green \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build:backend": "npm --prefix backend run build",
+    "build:frontend": "npm --prefix frontend run build",
+    "install:all": "npm install && npm --prefix backend install && npm --prefix frontend install"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "mammoth": "^1.12.0",
+    "xlsx": "^0.18.5"
+  }
+}

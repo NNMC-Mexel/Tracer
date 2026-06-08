@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Builds
+dist/
+build/
+.next/
+out/
+backend/.cache/
+backend/.tmp/
+backend/build/
+backend/.strapi/
+.strapi/
+*.db
+*.db-shm
+*.db-wal
+
+# Generated report exports
+*.xlsx~
+~$*.xlsx
+
+# Env / secrets
+.env
+*.env.local
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Uploads (Strapi local provider)
+backend/public/uploads/*
+!backend/public/uploads/.gitkeep

@@ -1,0 +1,30 @@
+{
+  "kind": "collectionType",
+  "collectionName": "criteria",
+  "info": {
+    "singularName": "criterion",
+    "pluralName": "criteria",
+    "displayName": "Критерий",
+    "description": "Критерий (вопрос) опросника"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "text": {
+      "type": "text",
+      "required": true
+    },
+    "order": {
+      "type": "integer",
+      "default": 0
+    },
+    "questionnaire": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::questionnaire.questionnaire",
+      "inversedBy": "criteria"
+    }
+  }
+}
