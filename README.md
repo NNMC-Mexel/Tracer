@@ -36,18 +36,39 @@ npm run dev
 
 ## Деплой (Coolify)
 
-В продакшене БД — PostgreSQL. Конфигурация БД управляется переменными
-окружения, поэтому переключение не требует правок кода. На Coolify задать:
+Монорепо разворачивается как **3 ресурса**: PostgreSQL + 2 приложения.
+
+**1. PostgreSQL** — отдельный ресурс. Взять внутренний `DATABASE_URL`.
+
+**2. Backend (Strapi)** — приложение, Base Directory `/backend`:
 
 ```
+NODE_ENV=production
+HOST=0.0.0.0
+PORT=<порт, напр. 14003>          # Strapi слушает PORT из env
+URL=https://<домен-бэкенда>        # публичный адрес за прокси
+APP_KEYS=...                       # секреты — из backend/.env
+API_TOKEN_SALT=...
+ADMIN_JWT_SECRET=...
+TRANSFER_TOKEN_SALT=...
+JWT_SECRET=...
+ENCRYPTION_KEY=...
 DATABASE_CLIENT=postgres
-DATABASE_HOST=...
-DATABASE_PORT=5432
-DATABASE_NAME=...
-DATABASE_USERNAME=...
-DATABASE_PASSWORD=...
+DATABASE_URL=<внутренний URL postgres>
 DATABASE_SSL=false
 ```
+Build: `npm run build`, Start: `npm run start`.
+
+**3. Frontend (Next.js)** — приложение, Base Directory `/frontend`:
+
+```
+PORT=<порт, напр. 14004>           # next start слушает PORT из env
+NEXT_PUBLIC_STRAPI_URL=https://<домен-бэкенда>
+```
+Build: `npm run build`, Start: `npm run start`.
+
+Порты обоих приложений берутся из переменной `PORT` — хардкода нет.
+БД через `DATABASE_URL`; переключение SQLite→Postgres не требует правок кода.
 
 ## Структура
 
