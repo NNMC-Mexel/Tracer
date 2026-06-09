@@ -78,10 +78,9 @@ export default function TracerFormPage() {
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<TracerSessionResult | null>(null);
 
-  function initChecklist(q: Questionnaire) {
-    const init: Record<number, AnswerValue> = {};
-    q.criteria.forEach((c) => (init[c.id] = "full"));
-    setChecklist(init);
+  function initChecklist(_q: Questionnaire) {
+    // Без предзаполнения — оценка ставится вручную (ничего не выбрано по умолчанию).
+    setChecklist({});
     setCritNotes({});
   }
 
@@ -180,9 +179,8 @@ export default function TracerFormPage() {
     setRows((prev) => (prev.some((e) => e.id === emp.id) ? prev : [...prev, emp]));
     setEmpAnswers((prev) => {
       if (prev[emp.id]) return prev;
-      const init: Record<number, AnswerValue> = {};
-      questionnaire?.criteria.forEach((c) => (init[c.id] = "full"));
-      return { ...prev, [emp.id]: init };
+      // Без предзаполнения — оценки по каждому критерию ставятся вручную.
+      return { ...prev, [emp.id]: {} };
     });
   }
   function removeRow(id: number) {
@@ -211,8 +209,15 @@ export default function TracerFormPage() {
       message.warning("Сначала выберите отдел");
       return;
     }
+    const allAnswered = (ans: Record<number, AnswerValue>) =>
+      questionnaire.criteria.every((c) => ans?.[c.id]);
+
     let subjects: SubjectPayload[];
     if (!isEmployee) {
+      if (!allAnswered(checklist)) {
+        message.warning("Ответьте на все вопросы");
+        return;
+      }
       subjects = [
         {
           label: selectedDept?.name,
@@ -224,6 +229,11 @@ export default function TracerFormPage() {
     } else {
       if (rows.length === 0) {
         message.warning("Добавьте хотя бы одного сотрудника");
+        return;
+      }
+      const unfinished = rows.find((e) => !allAnswered(empAnswers[e.id] ?? {}));
+      if (unfinished) {
+        message.warning(`Ответьте на все вопросы для: ${unfinished.fullName}`);
         return;
       }
       subjects = rows.map((e) => ({
@@ -354,7 +364,7 @@ export default function TracerFormPage() {
       render: (_: unknown, e: Employee) => (
         <AnswerSelect
           compact
-          value={empAnswers[e.id]?.[c.id] ?? "full"}
+          value={empAnswers[e.id]?.[c.id]}
           onChange={(v) =>
             setEmpAnswers((prev) => ({
               ...prev,
@@ -489,7 +499,7 @@ export default function TracerFormPage() {
                       {idx + 1}. {c.text}
                     </Text>
                     <AnswerSelect
-                      value={checklist[c.id] ?? "full"}
+                      value={checklist[c.id]}
                       onChange={(v) => setChecklist((p) => ({ ...p, [c.id]: v }))}
                     />
                   </div>
