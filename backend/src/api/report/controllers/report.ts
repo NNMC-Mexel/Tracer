@@ -16,7 +16,7 @@ export default {
   async years(ctx) {
     const rows = await strapi.db
       .query("api::tracer-session.tracer-session")
-      .findMany({ select: ["date"], limit: -1 });
+      .findMany({ select: ["date"], limit: 1000000 });
     const years = new Set<number>([new Date().getFullYear()]);
     for (const r of rows) {
       if (r.date) years.add(new Date(r.date).getFullYear());
@@ -47,7 +47,7 @@ export default {
         where,
         populate: { department: true, questionnaire: true },
         orderBy: { date: "asc" },
-        limit: -1,
+        limit: 1000000,
       });
 
     // KPI
@@ -94,7 +94,7 @@ export default {
       ? await strapi.db.query("api::tracer-subject.tracer-subject").findMany({
           where: { session: { id: { $in: sessionIds } }, employee: { id: { $notNull: true } } },
           populate: { session: { populate: { department: true } }, employee: true },
-          limit: -1,
+          limit: 1000000,
         })
       : [];
 
