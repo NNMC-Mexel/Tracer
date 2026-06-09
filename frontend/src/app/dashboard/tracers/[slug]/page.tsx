@@ -18,7 +18,7 @@ import {
   Statistic,
   Alert,
 } from "antd";
-import { ArrowLeftOutlined, DeleteOutlined, SaveOutlined } from "@ant-design/icons";
+import { ArrowLeftOutlined, DeleteOutlined, SaveOutlined, CheckCircleFilled } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import dayjs, { type Dayjs } from "dayjs";
 import { useAuth } from "@/lib/useAuth";
@@ -345,17 +345,32 @@ export default function TracerFormPage() {
       title: "Сотрудник",
       key: "emp",
       fixed: "left",
-      width: 220,
-      render: (_, e) => (
-        <div>
-          <div>{e.fullName}</div>
-          {e.position ? (
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              {e.position}
-            </Text>
-          ) : null}
-        </div>
-      ),
+      width: 240,
+      onCell: (e) => {
+        const done = questionnaire.criteria.every((c) => empAnswers[e.id]?.[c.id]);
+        return { style: done ? { background: "#f6ffed" } : { background: "#fffbe6" } };
+      },
+      render: (_, e) => {
+        const answered = questionnaire.criteria.filter((c) => empAnswers[e.id]?.[c.id]).length;
+        const total = questionnaire.criteria.length;
+        const done = answered === total;
+        return (
+          <div>
+            <div style={{ fontWeight: done ? 600 : 400, color: done ? "#389e0d" : undefined }}>
+              {done && <CheckCircleFilled style={{ color: "#52c41a", marginRight: 6 }} />}
+              {e.fullName}
+            </div>
+            {e.position ? (
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {e.position}
+              </Text>
+            ) : null}
+            <div style={{ fontSize: 11, color: done ? "#52c41a" : "#d48806" }}>
+              {done ? "готово" : `отмечено ${answered}/${total}`}
+            </div>
+          </div>
+        );
+      },
     },
     ...questionnaire.criteria.map((c) => ({
       title: c.text,
