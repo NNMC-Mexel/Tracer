@@ -38,10 +38,10 @@ export default function DashboardOverview() {
           Обзор
         </Title>
         <Paragraph type="secondary" style={{ marginBottom: 0 }}>
-          Справочник сотрудников загружен. Перейдите в раздел{" "}
-          <Link href="/dashboard/employees">Сотрудники</Link> для поиска и
-          добавления. Опросники и проведение трейсеров подключим на следующем
-          этапе.
+          Разделы: <Link href="/dashboard/employees">Сотрудники</Link> —
+          справочник и добавление; <Link href="/dashboard/tracers">Трейсеры</Link> —
+          проведение опросников; <Link href="/dashboard/reports">Отчёты</Link> —
+          сводка, журнал и печать.
         </Paragraph>
       </Card>
 

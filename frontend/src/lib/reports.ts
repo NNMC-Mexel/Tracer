@@ -115,6 +115,7 @@ export interface JournalRow {
 export interface JournalParams extends SummaryParams {
   page?: number;
   pageSize?: number;
+  auditor?: string;
 }
 
 export async function getJournal(
@@ -127,6 +128,8 @@ export async function getJournal(
     qs.set("filters[department][id][$eq]", String(params.departmentId));
   if (params.questionnaireId)
     qs.set("filters[questionnaire][id][$eq]", String(params.questionnaireId));
+  if (params.auditor && params.auditor.trim())
+    qs.set("filters[auditorName][$containsi]", params.auditor.trim());
   qs.set("populate[0]", "department");
   qs.set("populate[1]", "questionnaire");
   qs.set("sort[0]", "date:desc");

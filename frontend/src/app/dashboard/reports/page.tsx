@@ -21,6 +21,7 @@ import {
   Tooltip,
   Breadcrumb,
   Empty,
+  Input,
   App,
 } from "antd";
 import { useRouter } from "next/navigation";
@@ -62,7 +63,7 @@ import {
   exportSummaryPdf,
   exportJournalExcel,
 } from "@/lib/reports-export";
-import { LEVEL_LABEL } from "@/lib/tracers";
+import { LEVEL_LABEL, listQuestionnaires, type Questionnaire } from "@/lib/tracers";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -431,6 +432,13 @@ function Journal({
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [detail, setDetail] = useState<JournalRow | null>(null);
+  const [auditor, setAuditor] = useState("");
+  const [qId, setQId] = useState<number | undefined>(questionnaireId);
+  const [questionnaires, setQuestionnaires] = useState<Questionnaire[]>([]);
+
+  useEffect(() => {
+    listQuestionnaires().then(setQuestionnaires).catch(() => {});
+  }, []);
 
   async function onDelete(r: JournalRow) {
     try {
@@ -444,14 +452,14 @@ function Journal({
 
   const load = useCallback(() => {
     setLoading(true);
-    getJournal({ from, to, departmentId, questionnaireId, page, pageSize: 20 })
+    getJournal({ from, to, departmentId, questionnaireId: qId, auditor, page, pageSize: 20 })
       .then((res) => {
         setRows(res.data);
         setTotal(res.meta.pagination.total);
       })
       .catch(() => message.error("Не удалось загрузить журнал"))
       .finally(() => setLoading(false));
-  }, [from, to, departmentId, questionnaireId, page, message]);
+  }, [from, to, departmentId, qId, auditor, page, message]);
 
   useEffect(() => {
     load();
@@ -522,6 +530,26 @@ function Journal({
         </Button>
       }
     >
+      <Space style={{ marginBottom: 12 }} wrap>
+        <Input.Search
+          allowClear
+          placeholder="Поиск по аудитору"
+          style={{ width: 240 }}
+          onSearch={(v) => { setPage(1); setAuditor(v); }}
+          onChange={(e) => { if (!e.target.value) { setPage(1); setAuditor(""); } }}
+        />
+        <Select
+          allowClear
+          showSearch
+          optionFilterProp="label"
+          placeholder="Все опросники"
+          style={{ width: 320 }}
+          value={qId}
+          onChange={(v) => { setPage(1); setQId(v); }}
+          options={questionnaires.map((q) => ({ value: q.id, label: q.name }))}
+        />
+      </Space>
+
       <Table<JournalRow>
         rowKey="id"
         columns={columns}
@@ -567,6 +595,11 @@ function Journal({
                   {LEVEL_LABEL[detail.complianceLevel]?.text}
                 </Tag>
               </p>
+              {detail.note ? (
+                <p style={{ marginTop: -6 }}>
+                  <b>Примечание:</b> {detail.note}
+                </p>
+              ) : null}
               <Button
                 type="primary"
                 icon={<PrinterOutlined />}

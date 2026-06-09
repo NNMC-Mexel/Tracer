@@ -430,6 +430,7 @@ export default function TracerFormPage() {
               onChange={(d) => d && setDate(d)}
               format="DD.MM.YYYY"
               allowClear={false}
+              disabledDate={(d) => !!d && d.isAfter(dayjs(), "day")}
             />
           </div>
           <div>
