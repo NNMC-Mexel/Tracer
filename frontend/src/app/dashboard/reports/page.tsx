@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Card,
   Select,
@@ -19,6 +19,8 @@ import {
   Modal,
   Popconfirm,
   Tooltip,
+  Breadcrumb,
+  Empty,
   App,
 } from "antd";
 import { useRouter } from "next/navigation";
@@ -31,14 +33,13 @@ import {
   EditOutlined,
   DeleteOutlined,
   PrinterOutlined,
+  RightOutlined,
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import dayjs, { type Dayjs } from "dayjs";
 import {
   LineChart,
   Line,
-  BarChart,
-  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -61,28 +62,18 @@ import {
   exportSummaryPdf,
   exportJournalExcel,
 } from "@/lib/reports-export";
-import { listDepartments, type Department } from "@/lib/employees";
-import { listQuestionnaires, LEVEL_LABEL, type Questionnaire } from "@/lib/tracers";
+import { LEVEL_LABEL } from "@/lib/tracers";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 
 export default function ReportsPage() {
-  const { message } = App.useApp();
-
   const [years, setYears] = useState<number[]>([dayjs().year()]);
   const [year, setYear] = useState<number>(dayjs().year());
   const [range, setRange] = useState<[Dayjs, Dayjs]>([
     dayjs().startOf("month"),
     dayjs().endOf("month"),
   ]);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [questionnaires, setQuestionnaires] = useState<Questionnaire[]>([]);
-  const [departmentId, setDepartmentId] = useState<number | undefined>();
-  const [questionnaireId, setQuestionnaireId] = useState<number | undefined>();
-
-  const [summary, setSummary] = useState<Summary | null>(null);
-  const [loading, setLoading] = useState(false);
 
   const from = range[0].format("YYYY-MM-DD");
   const to = range[1].format("YYYY-MM-DD");
@@ -90,64 +81,14 @@ export default function ReportsPage() {
 
   useEffect(() => {
     getReportYears().then(setYears).catch(() => {});
-    listDepartments().then(setDepartments).catch(() => {});
-    listQuestionnaires().then(setQuestionnaires).catch(() => {});
   }, []);
-
-  const loadSummary = useCallback(() => {
-    setLoading(true);
-    getSummary({ from, to, departmentId, questionnaireId })
-      .then(setSummary)
-      .catch(() => message.error("Не удалось загрузить отчёт"))
-      .finally(() => setLoading(false));
-  }, [from, to, departmentId, questionnaireId, message]);
-
-  useEffect(() => {
-    loadSummary();
-  }, [loadSummary]);
 
   function onYearChange(y: number) {
     setYear(y);
-    // при смене года — весь год; если текущий, то текущий месяц
     if (y === dayjs().year()) {
       setRange([dayjs().startOf("month"), dayjs().endOf("month")]);
     } else {
       setRange([dayjs(`${y}-01-01`), dayjs(`${y}-12-31`)]);
-    }
-  }
-
-  const monthData = useMemo(
-    () =>
-      (summary?.monthly ?? []).map((m) => ({
-        name: monthLabel(m.month),
-        "Средний %": m.avgPercent,
-        Трейсеров: m.sessions,
-      })),
-    [summary],
-  );
-  const deptData = useMemo(
-    () =>
-      (summary?.byDepartment ?? []).slice(0, 12).map((d) => ({
-        name: d.name.length > 22 ? d.name.slice(0, 20) + "…" : d.name,
-        "Средний %": d.avgPercent,
-      })),
-    [summary],
-  );
-
-  async function doExcel() {
-    if (!summary) return;
-    try {
-      await exportSummaryExcel(summary, { title: "Сводный отчёт по трейсерам", period: periodLabel });
-    } catch {
-      message.error("Ошибка экспорта в Excel");
-    }
-  }
-  async function doPdf() {
-    if (!summary) return;
-    try {
-      await exportSummaryPdf(summary, { title: "Сводный отчёт по трейсерам", period: periodLabel });
-    } catch {
-      message.error("Ошибка экспорта в PDF");
     }
   }
 
@@ -184,235 +125,289 @@ export default function ReportsPage() {
               Год
             </Button>
           </Space>
-          <div>
-            <Text strong>Отдел</Text>
-            <br />
-            <Select
-              allowClear
-              showSearch
-              optionFilterProp="label"
-              placeholder="Все отделы"
-              style={{ width: 260, marginTop: 4 }}
-              value={departmentId}
-              onChange={setDepartmentId}
-              options={departments.map((d) => ({ value: d.id, label: d.name }))}
-            />
-          </div>
-          <div>
-            <Text strong>Опросник</Text>
-            <br />
-            <Select
-              allowClear
-              placeholder="Все опросники"
-              style={{ width: 240, marginTop: 4 }}
-              value={questionnaireId}
-              onChange={setQuestionnaireId}
-              options={questionnaires.map((q) => ({ value: q.id, label: q.name }))}
-            />
-          </div>
-          <Space>
-            <Button icon={<FileExcelOutlined />} onClick={doExcel}>
-              Excel
-            </Button>
-            <Button icon={<FilePdfOutlined />} onClick={doPdf}>
-              PDF
-            </Button>
-          </Space>
         </Space>
       </Card>
 
       <Tabs
         items={[
-          { key: "overview", label: "Общая", children: <Overview summary={summary} loading={loading} monthData={monthData} deptData={deptData} /> },
-          { key: "journal", label: "Журнал", children: <Journal from={from} to={to} departmentId={departmentId} questionnaireId={questionnaireId} periodLabel={periodLabel} /> },
+          { key: "summary", label: "Сводка", children: <DrillDown from={from} to={to} periodLabel={periodLabel} /> },
+          { key: "journal", label: "Журнал", children: <Journal from={from} to={to} periodLabel={periodLabel} /> },
         ]}
       />
     </div>
   );
 }
 
-function Overview({
-  summary,
-  loading,
-  monthData,
-  deptData,
-}: {
-  summary: Summary | null;
-  loading: boolean;
-  monthData: { name: string; "Средний %": number; Трейсеров: number }[];
-  deptData: { name: string; "Средний %": number }[];
-}) {
-  if (loading || !summary) return <Spin />;
-  const k = summary.kpi;
+function MonthlyChart({ summary }: { summary: Summary }) {
+  const data = (summary.monthly ?? []).map((m) => ({
+    name: monthLabel(m.month),
+    "Средний %": m.avgPercent,
+  }));
+  if (data.length === 0) return null;
+  return (
+    <Card title="Динамика по месяцам" size="small">
+      <ResponsiveContainer width="100%" height={220}>
+        <LineChart data={data} margin={{ top: 8, right: 16, bottom: 0, left: -16 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="name" />
+          <YAxis domain={[0, 100]} />
+          <RTooltip />
+          <Line type="monotone" dataKey="Средний %" stroke="#1677ff" strokeWidth={2} />
+        </LineChart>
+      </ResponsiveContainer>
+    </Card>
+  );
+}
 
-  const deptColumns: ColumnsType<Summary["byDepartment"][number]> = [
-    { title: "Отдел", dataIndex: "name", key: "name" },
-    { title: "Трейсеров", dataIndex: "sessions", key: "sessions", width: 100 },
-    {
-      title: "Средний %",
-      dataIndex: "avgPercent",
-      key: "avg",
-      width: 160,
-      render: (v: number) => <Progress percent={v} size="small" />,
-      sorter: (a, b) => a.avgPercent - b.avgPercent,
-    },
-    {
-      title: "Охват",
-      key: "coverage",
-      width: 160,
-      render: (_, d) =>
-        d.coverage == null ? (
-          "—"
-        ) : (
-          <Space size={4}>
-            <Progress percent={d.coverage} size="small" status="active" />
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              {d.auditedEmployees}/{d.totalEmployees}
-            </Text>
-          </Space>
-        ),
-      sorter: (a, b) => (a.coverage ?? 0) - (b.coverage ?? 0),
-    },
+/** Проваливающийся отчёт: Трейсеры → Отделы → Сотрудники. */
+function DrillDown({ from, to, periodLabel }: { from: string; to: string; periodLabel: string }) {
+  const { message } = App.useApp();
+  const [overall, setOverall] = useState<Summary | null>(null);
+  const [tracer, setTracer] = useState<Summary | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [selQ, setSelQ] = useState<{ id: number; name: string } | null>(null);
+  const [selDept, setSelDept] = useState<string | null>(null);
+
+  // уровень 0 — список трейсеров
+  useEffect(() => {
+    setLoading(true);
+    getSummary({ from, to })
+      .then(setOverall)
+      .catch(() => message.error("Не удалось загрузить отчёт"))
+      .finally(() => setLoading(false));
+    setSelQ(null);
+    setSelDept(null);
+  }, [from, to, message]);
+
+  // уровень 1/2 — по выбранному трейсеру
+  useEffect(() => {
+    if (!selQ) {
+      setTracer(null);
+      return;
+    }
+    setLoading(true);
+    getSummary({ from, to, questionnaireId: selQ.id })
+      .then(setTracer)
+      .catch(() => message.error("Не удалось загрузить трейсер"))
+      .finally(() => setLoading(false));
+    setSelDept(null);
+  }, [selQ, from, to, message]);
+
+  async function doExcel() {
+    const s = selQ ? tracer : overall;
+    if (!s) return;
+    try {
+      await exportSummaryExcel(s, { title: selQ ? selQ.name : "Сводный отчёт по трейсерам", period: periodLabel });
+    } catch {
+      message.error("Ошибка экспорта в Excel");
+    }
+  }
+  async function doPdf() {
+    const s = selQ ? tracer : overall;
+    if (!s) return;
+    try {
+      await exportSummaryPdf(s, { title: selQ ? selQ.name : "Сводный отчёт по трейсерам", period: periodLabel });
+    } catch {
+      message.error("Ошибка экспорта в PDF");
+    }
+  }
+
+  const crumbs = [
+    { title: <a onClick={() => { setSelQ(null); setSelDept(null); }}>Все трейсеры</a> },
+    ...(selQ ? [{ title: selDept ? <a onClick={() => setSelDept(null)}>{selQ.name}</a> : <span>{selQ.name}</span> }] : []),
+    ...(selDept ? [{ title: <span>{selDept}</span> }] : []),
   ];
+
+  const exportButtons = (
+    <Space>
+      <Button icon={<FileExcelOutlined />} onClick={doExcel}>Excel</Button>
+      <Button icon={<FilePdfOutlined />} onClick={doPdf}>PDF</Button>
+    </Space>
+  );
+
+  if (loading && !overall) return <Spin />;
+  if (!overall) return <Empty description="Нет данных" />;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <Card size="small">
+        <Space style={{ width: "100%", justifyContent: "space-between" }} wrap>
+          <Breadcrumb items={crumbs} />
+          {exportButtons}
+        </Space>
+      </Card>
+
+      {!selQ && <LevelTracers summary={overall} onPick={setSelQ} />}
+      {selQ && !selDept && (
+        loading || !tracer ? <Spin /> : <LevelDepartments summary={tracer} title={selQ.name} onPick={setSelDept} />
+      )}
+      {selQ && selDept && tracer && (
+        <LevelEmployees summary={tracer} department={selDept} />
+      )}
+    </div>
+  );
+}
+
+function LevelTracers({ summary, onPick }: { summary: Summary; onPick: (q: { id: number; name: string }) => void }) {
+  const k = summary.kpi;
+  return (
+    <>
       <Row gutter={[16, 16]}>
-        <Col xs={12} md={6}>
-          <Card><Statistic title="Трейсеров" value={k.sessions} prefix={<AuditOutlined />} /></Card>
+        <Col xs={12} md={8}>
+          <Card><Statistic title="Трейсеров проведено" value={k.sessions} prefix={<AuditOutlined />} /></Card>
         </Col>
-        <Col xs={12} md={6}>
+        <Col xs={12} md={8}>
           <Card><Statistic title="Проверено сотрудников" value={k.subjects} prefix={<TeamOutlined />} /></Card>
         </Col>
-        <Col xs={12} md={6}>
-          <Card><Statistic title="Средний %" value={k.avgPercent} suffix="%" prefix={<PercentageOutlined />} /></Card>
-        </Col>
-        <Col xs={12} md={6}>
-          <Card>
-            <Text type="secondary">Уровни</Text>
-            <div style={{ marginTop: 8 }}>
-              <Tag color="green">Высокий: {k.levelCounts.high}</Tag>
-              <Tag color="gold">Средний: {k.levelCounts.medium}</Tag>
-              <Tag color="red">Низкий: {k.levelCounts.low}</Tag>
-            </div>
-          </Card>
+        <Col xs={12} md={8}>
+          <Card><Statistic title="Средний % (по отделам)" value={k.avgPercent} suffix="%" prefix={<PercentageOutlined />} /></Card>
         </Col>
       </Row>
 
-      <Card title="Динамика по месяцам">
-        {monthData.length === 0 ? (
-          <Text type="secondary">Нет данных за период</Text>
-        ) : (
-          <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={monthData} margin={{ top: 8, right: 16, bottom: 0, left: -16 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis domain={[0, 100]} />
-              <RTooltip />
-              <Line type="monotone" dataKey="Средний %" stroke="#1677ff" strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
-        )}
-      </Card>
-
-      <Card title="Сравнение отделов (средний %)">
-        {deptData.length === 0 ? (
-          <Text type="secondary">Нет данных за период</Text>
-        ) : (
-          <ResponsiveContainer width="100%" height={Math.max(220, deptData.length * 32)}>
-            <BarChart layout="vertical" data={deptData} margin={{ left: 24, right: 24 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis type="number" domain={[0, 100]} />
-              <YAxis type="category" dataKey="name" width={160} tick={{ fontSize: 12 }} />
-              <RTooltip />
-              <Bar dataKey="Средний %" fill="#1677ff" radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </Card>
-
-      <Card title="По отделам">
+      <Card title="Трейсеры — нажмите, чтобы провалиться">
         <Table
           rowKey="name"
-          size="small"
-          columns={deptColumns}
-          dataSource={summary.byDepartment}
-          pagination={false}
-        />
-      </Card>
-
-      <Card title="По опросникам">
-        <Table
-          rowKey="name"
-          size="small"
+          size="middle"
           pagination={false}
           dataSource={summary.byQuestionnaire}
+          onRow={(r) => ({
+            style: { cursor: r.id ? "pointer" : "default" },
+            onClick: () => r.id && onPick({ id: r.id, name: r.name }),
+          })}
           columns={[
-            { title: "Опросник", dataIndex: "name", key: "name" },
+            { title: "Трейсер", dataIndex: "name", key: "name" },
             { title: "Отделов", dataIndex: "departments", key: "departments", width: 90 },
-            { title: "Трейсеров", dataIndex: "sessions", key: "sessions", width: 100 },
+            { title: "Проведено", dataIndex: "sessions", key: "sessions", width: 100 },
             {
-              title: "Средний % (по отделам)",
+              title: "Свод (средний % по отделам)",
               dataIndex: "avgPercent",
               key: "avg",
-              width: 200,
+              width: 240,
               render: (v: number) => <Progress percent={v} size="small" />,
             },
+            { title: "", key: "go", width: 36, render: () => <RightOutlined style={{ color: "#bbb" }} /> },
           ]}
         />
       </Card>
+    </>
+  );
+}
 
-      <Card title="По категориям персонала (ВМР / СМР / ММП / ДР)">
+function LevelDepartments({
+  summary,
+  title,
+  onPick,
+}: {
+  summary: Summary;
+  title: string;
+  onPick: (dept: string) => void;
+}) {
+  const k = summary.kpi;
+  return (
+    <>
+      <Card>
+        <Title level={4} style={{ marginTop: 0 }}>{title}</Title>
+        <Space size="large" wrap>
+          <Statistic title="Свод по трейсеру" value={k.avgPercent} suffix="%" />
+          <Statistic title="Проведено" value={k.sessions} />
+          <Statistic title="Проверено сотрудников" value={k.subjects} />
+        </Space>
+      </Card>
+
+      <MonthlyChart summary={summary} />
+
+      <Card title="Отделы — нажмите, чтобы увидеть сотрудников">
         <Table
-          rowKey="category"
-          size="small"
+          rowKey="name"
+          size="middle"
           pagination={false}
-          dataSource={summary.byCategory}
-          locale={{ emptyText: "Нет данных (категории проставляются по должности)" }}
+          dataSource={summary.byDepartment}
+          onRow={(r) => ({ style: { cursor: "pointer" }, onClick: () => onPick(r.name) })}
           columns={[
-            {
-              title: "Категория",
-              dataIndex: "category",
-              key: "category",
-              render: (c: string) => CATEGORY_LABEL[c] ?? c,
-            },
-            { title: "Проверено", dataIndex: "subjects", key: "subjects", width: 120 },
+            { title: "Отдел", dataIndex: "name", key: "name" },
+            { title: "Проведено", dataIndex: "sessions", key: "sessions", width: 100 },
             {
               title: "Средний %",
               dataIndex: "avgPercent",
               key: "avg",
-              width: 200,
+              width: 180,
+              sorter: (a, b) => a.avgPercent - b.avgPercent,
               render: (v: number) => <Progress percent={v} size="small" />,
             },
+            {
+              title: "Охват",
+              key: "coverage",
+              width: 170,
+              render: (_, d) =>
+                d.coverage == null ? "—" : (
+                  <Space size={4}>
+                    <Progress percent={d.coverage} size="small" status="active" />
+                    <Text type="secondary" style={{ fontSize: 12 }}>{d.auditedEmployees}/{d.totalEmployees}</Text>
+                  </Space>
+                ),
+            },
+            { title: "", key: "go", width: 36, render: () => <RightOutlined style={{ color: "#bbb" }} /> },
           ]}
         />
       </Card>
 
-      {summary.byEmployee.length > 0 && (
-        <Card title="По сотрудникам (детализация выбранного опросника)">
+      {summary.byCategory.length > 0 && (
+        <Card title="По категориям персонала (ВМР / СМР / ММП / ДР)" size="small">
           <Table
-            rowKey={(r) => `${r.employeeId}-${r.scorePercent}`}
+            rowKey="category"
             size="small"
-            dataSource={summary.byEmployee}
-            pagination={{ pageSize: 50, showSizeChanger: true }}
+            pagination={false}
+            dataSource={summary.byCategory}
             columns={[
-              { title: "ФИО", dataIndex: "fullName", key: "fullName" },
-              { title: "Должность", dataIndex: "position", key: "position" },
-              { title: "Отдел", dataIndex: "department", key: "department" },
-              { title: "Категория", dataIndex: "category", key: "category", width: 90 },
-              {
-                title: "%",
-                dataIndex: "scorePercent",
-                key: "p",
-                width: 70,
-                sorter: (a, b) => a.scorePercent - b.scorePercent,
-                render: (v: number) => <b>{v}%</b>,
-              },
+              { title: "Категория", dataIndex: "category", key: "category", render: (c: string) => CATEGORY_LABEL[c] ?? c },
+              { title: "Проверено", dataIndex: "subjects", key: "subjects", width: 120 },
+              { title: "Средний %", dataIndex: "avgPercent", key: "avg", width: 180, render: (v: number) => <Progress percent={v} size="small" /> },
             ]}
           />
         </Card>
       )}
-    </div>
+    </>
+  );
+}
+
+function LevelEmployees({ summary, department }: { summary: Summary; department: string }) {
+  const people = summary.byEmployee.filter((e) => e.department === department);
+  const avg = people.length
+    ? Math.round((people.reduce((a, e) => a + e.scorePercent, 0) / people.length) * 10) / 10
+    : 0;
+  return (
+    <>
+      <Card>
+        <Title level={4} style={{ marginTop: 0 }}>{department}</Title>
+        <Space size="large" wrap>
+          <Statistic title="Средний % отдела" value={avg} suffix="%" />
+          <Statistic title="Проверено сотрудников" value={people.length} />
+        </Space>
+      </Card>
+
+      <Card title="Сотрудники">
+        <Table
+          rowKey={(r) => `${r.employeeId}-${r.scorePercent}`}
+          size="middle"
+          pagination={{ pageSize: 50, showSizeChanger: true }}
+          dataSource={people}
+          locale={{ emptyText: "Нет проверенных сотрудников" }}
+          columns={[
+            { title: "ФИО", dataIndex: "fullName", key: "fullName" },
+            { title: "Должность", dataIndex: "position", key: "position" },
+            { title: "Категория", dataIndex: "category", key: "category", width: 90 },
+            {
+              title: "%",
+              dataIndex: "scorePercent",
+              key: "p",
+              width: 90,
+              sorter: (a, b) => a.scorePercent - b.scorePercent,
+              render: (v: number) => <b>{v}%</b>,
+            },
+          ]}
+        />
+      </Card>
+    </>
   );
 }
 
