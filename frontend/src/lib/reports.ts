@@ -136,10 +136,11 @@ export async function getJournal(
 }
 
 export async function getSessionDetail(documentId: string): Promise<JournalRow> {
+  // Единый объектный стиль populate (нельзя мешать массив и объект — Strapi теряет часть связей).
   const qs = new URLSearchParams();
-  qs.set("populate[0]", "department");
-  qs.set("populate[1]", "questionnaire");
-  qs.set("populate[subjects][populate][employee][populate][0]", "department");
+  qs.set("populate[department]", "true");
+  qs.set("populate[questionnaire]", "true");
+  qs.set("populate[subjects][populate][employee][populate][department]", "true");
   const res = await strapiFetch<{ data: JournalRow }>(
     `/api/tracer-sessions/${documentId}?${qs.toString()}`,
   );
