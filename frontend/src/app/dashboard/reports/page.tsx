@@ -18,6 +18,7 @@ import {
   Typography,
   Modal,
   Popconfirm,
+  Tooltip,
   App,
 } from "antd";
 import { useRouter } from "next/navigation";
@@ -29,6 +30,7 @@ import {
   PercentageOutlined,
   EditOutlined,
   DeleteOutlined,
+  PrinterOutlined,
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import dayjs, { type Dayjs } from "dayjs";
@@ -548,35 +550,89 @@ function Journal({
         width={680}
         title={detail ? `Трейсер — ${dayjs(detail.date).format("DD.MM.YYYY")}` : ""}
       >
-        {detail && (
-          <div>
-            <p>
-              <b>Опросник:</b> {detail.questionnaire?.name}
-              <br />
-              <b>Отдел:</b> {detail.department?.name}
-              <br />
-              <b>Аудитор:</b> {detail.auditorName ?? "—"}
-              <br />
-              <b>Результат:</b> {detail.scorePercent}%{" "}
-              <Tag color={LEVEL_LABEL[detail.complianceLevel]?.color}>
-                {LEVEL_LABEL[detail.complianceLevel]?.text}
-              </Tag>
-            </p>
-            <Title level={5}>Кого проверяли</Title>
-            <Table
-              rowKey="id"
-              size="small"
-              pagination={false}
-              dataSource={detail.subjects ?? []}
-              locale={{ emptyText: "—" }}
-              columns={[
-                { title: "Сотрудник / субъект", key: "l", render: (_, s) => s.label ?? s.employee?.fullName ?? "—" },
-                { title: "Должность", dataIndex: "positionSnapshot", key: "pos" },
-                { title: "%", dataIndex: "scorePercent", key: "p", width: 70, render: (v: number) => <b>{v}%</b> },
-              ]}
-            />
-          </div>
-        )}
+        {detail && (() => {
+          const ANS: Record<string, { s: string; c: string }> = {
+            full: { s: "✓", c: "#52c41a" },
+            partial: { s: "±", c: "#faad14" },
+            none: { s: "✗", c: "#ff4d4f" },
+          };
+          const crit = (detail.criteriaSnapshot ?? []).slice().sort((a, b) => a.order - b.order);
+          const isEmp = detail.questionnaire?.subjectType === "employee";
+          return (
+            <div>
+              <p>
+                <b>Опросник:</b> {detail.questionnaire?.name}
+                <br />
+                <b>Отдел:</b> {detail.department?.name}
+                <br />
+                <b>Аудитор:</b> {detail.auditorName ?? "—"}
+                <br />
+                <b>Результат:</b> {detail.scorePercent}%{" "}
+                <Tag color={LEVEL_LABEL[detail.complianceLevel]?.color}>
+                  {LEVEL_LABEL[detail.complianceLevel]?.text}
+                </Tag>
+              </p>
+              <Button
+                type="primary"
+                icon={<PrinterOutlined />}
+                style={{ marginBottom: 12 }}
+                onClick={() => window.open(`/print/tracer/${detail.documentId}`, "_blank")}
+              >
+                Документ для печати (с подписями)
+              </Button>
+
+              <Title level={5}>Кто как ответил</Title>
+              {isEmp ? (
+                <Table
+                  rowKey="id"
+                  size="small"
+                  pagination={false}
+                  scroll={{ x: "max-content" }}
+                  dataSource={detail.subjects ?? []}
+                  locale={{ emptyText: "—" }}
+                  columns={[
+                    { title: "Сотрудник", key: "l", fixed: "left", render: (_, s) => s.label ?? s.employee?.fullName ?? "—" },
+                    ...crit.map((c, i) => ({
+                      title: <Tooltip title={c.text}>{i + 1}</Tooltip>,
+                      key: `c${c.id}`,
+                      align: "center" as const,
+                      width: 44,
+                      render: (_: unknown, s: NonNullable<JournalRow["subjects"]>[number]) => {
+                        const a = ANS[s.answers?.[c.id] as string];
+                        return a ? <span style={{ color: a.c, fontWeight: 700 }}>{a.s}</span> : "";
+                      },
+                    })),
+                    { title: "%", dataIndex: "scorePercent", key: "p", fixed: "right", width: 60, render: (v: number) => <b>{v}%</b> },
+                  ]}
+                />
+              ) : (
+                <Table
+                  rowKey="id"
+                  size="small"
+                  pagination={false}
+                  dataSource={crit}
+                  columns={[
+                    { title: "№", key: "n", width: 40, render: (_, __, i) => i + 1 },
+                    { title: "Критерий", dataIndex: "text", key: "t" },
+                    {
+                      title: "Оценка",
+                      key: "a",
+                      width: 130,
+                      render: (_, c) => {
+                        const a = ANS[detail.subjects?.[0]?.answers?.[c.id] as string];
+                        return a ? <span style={{ color: a.c, fontWeight: 700 }}>{a.s} {detail.subjects?.[0]?.answers?.[c.id] === "full" ? "Соотв." : detail.subjects?.[0]?.answers?.[c.id] === "partial" ? "Частично" : "Не соотв."}</span> : "";
+                      },
+                    },
+                    { title: "Примечание", key: "note", render: (_, c) => detail.subjects?.[0]?.notes?.[c.id] ?? "" },
+                  ]}
+                />
+              )}
+              <div style={{ marginTop: 6, fontSize: 12, color: "#888" }}>
+                ✓ соответствует · ± частично · ✗ не соответствует
+              </div>
+            </div>
+          );
+        })()}
       </Modal>
     </Card>
   );
