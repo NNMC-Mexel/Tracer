@@ -119,51 +119,148 @@ async function getPdfMake(): Promise<any> {
   return pdfMake;
 }
 
+const CAT_FULL: Record<string, string> = {
+  ВМР: "ВМР — врачи",
+  СМР: "СМР — средний медперсонал",
+  ММП: "ММП — младший медперсонал",
+  ДР: "ДР — другой персонал",
+};
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export async function exportSummaryPdf(summary: Summary, meta: Meta) {
   const pdfMake = await getPdfMake();
 
-  const deptBody = [
-    ["Отдел", "Трейсеров", "Ср. %", "Охват %"],
-    ...summary.byDepartment.map((d) => [
-      d.name,
-      String(d.sessions),
-      String(d.avgPercent),
-      d.coverage != null ? String(d.coverage) : "—",
-    ]),
-  ];
-  const quesBody = [
-    ["Опросник", "Трейсеров", "Ср. %"],
-    ...summary.byQuestionnaire.map((q) => [q.name, String(q.sessions), String(q.avgPercent)]),
+  const ACCENT = "#1677ff";
+  const pctColor = (v: number) => (v >= 85 ? "#389e0d" : v >= 60 ? "#d48806" : "#cf1322");
+  const pct = (v: number) => ({ text: `${v}%`, color: pctColor(v), bold: true });
+  const th = (t: string, align: "left" | "center" | "right" = "left") => ({
+    text: t,
+    bold: true,
+    color: "white",
+    fontSize: 9,
+    alignment: align,
+  });
+
+  const tableLayout = {
+    fillColor: (rowIndex: number) =>
+      rowIndex === 0 ? ACCENT : rowIndex % 2 === 0 ? "#f5f8ff" : null,
+    hLineWidth: () => 0.5,
+    vLineWidth: () => 0.5,
+    hLineColor: () => "#e0e0e0",
+    vLineColor: () => "#e0e0e0",
+    paddingTop: () => 4,
+    paddingBottom: () => 4,
+  };
+
+  const block = (title: string, headers: any[], widths: any[], rows: any[][]) => [
+    { text: title, style: "h2" },
+    {
+      table: { headerRows: 1, widths, body: [headers, ...rows] },
+      layout: tableLayout,
+      margin: [0, 2, 0, 14],
+    },
   ];
 
-  const doc = {
-    pageMargins: [30, 30, 30, 30] as [number, number, number, number],
-    content: [
-      { text: meta.title, style: "h1" },
-      { text: `Период: ${meta.period}`, margin: [0, 0, 0, 10] },
-      {
-        columns: [
-          { text: `Трейсеров: ${summary.kpi.sessions}` },
-          { text: `Проверено: ${summary.kpi.subjects}` },
-          { text: `Средний %: ${summary.kpi.avgPercent}` },
+  const content: any[] = [
+    { text: meta.title, style: "h1" },
+    { text: `Период: ${meta.period}`, color: "#888", margin: [0, 0, 0, 6] },
+    {
+      canvas: [{ type: "line", x1: 0, y1: 0, x2: 535, y2: 0, lineWidth: 1.5, lineColor: ACCENT }],
+      margin: [0, 0, 0, 12],
+    },
+    {
+      table: {
+        widths: ["*", "*", "*"],
+        body: [
+          [
+            { stack: [{ text: String(summary.kpi.sessions), style: "kpiVal" }, { text: "Трейсеров", style: "kpiLabel" }], margin: [8, 6, 8, 6] },
+            { stack: [{ text: String(summary.kpi.subjects), style: "kpiVal" }, { text: "Проверено сотрудников", style: "kpiLabel" }], margin: [8, 6, 8, 6] },
+            { stack: [{ text: `${summary.kpi.avgPercent}%`, style: "kpiVal", color: pctColor(summary.kpi.avgPercent) }, { text: "Средний % (по отделам)", style: "kpiLabel" }], margin: [8, 6, 8, 6] },
+          ],
         ],
-        margin: [0, 0, 0, 12],
       },
-      { text: "По отделам", style: "h2" },
-      {
-        table: { headerRows: 1, widths: ["*", "auto", "auto", "auto"], body: deptBody },
-        layout: "lightHorizontalLines",
-        margin: [0, 0, 0, 12],
-      },
-      { text: "По опросникам", style: "h2" },
-      {
-        table: { headerRows: 1, widths: ["*", "auto", "auto"], body: quesBody },
-        layout: "lightHorizontalLines",
-      },
-    ],
+      layout: { fillColor: () => "#eef3fb", hLineWidth: () => 0, vLineWidth: () => 2, vLineColor: () => "#ffffff" },
+      margin: [0, 0, 0, 16],
+    },
+  ];
+
+  if (summary.byDepartment.length) {
+    content.push(
+      ...block(
+        "По отделам",
+        [th("Отдел"), th("Трейсеров", "center"), th("Ср. %", "center"), th("Охват %", "center")],
+        ["*", "auto", "auto", "auto"],
+        summary.byDepartment.map((d) => [
+          d.name,
+          { text: String(d.sessions), alignment: "center" },
+          { ...pct(d.avgPercent), alignment: "center" },
+          { text: d.coverage != null ? `${d.coverage}%` : "—", alignment: "center" },
+        ]),
+      ),
+    );
+  }
+
+  if (summary.byCategory.length) {
+    content.push(
+      ...block(
+        "По категориям персонала",
+        [th("Категория"), th("Проверено", "center"), th("Ср. %", "center")],
+        ["*", "auto", "auto"],
+        summary.byCategory.map((c) => [
+          CAT_FULL[c.category] ?? c.category,
+          { text: String(c.subjects), alignment: "center" },
+          { ...pct(c.avgPercent), alignment: "center" },
+        ]),
+      ),
+    );
+  }
+
+  if (summary.byEmployee.length) {
+    content.push(
+      ...block(
+        "По сотрудникам",
+        [th("ФИО"), th("Должность"), th("Отдел"), th("Кат.", "center"), th("%", "center")],
+        ["*", "auto", "auto", "auto", "auto"],
+        summary.byEmployee.map((e) => [
+          e.fullName,
+          e.position ?? "",
+          e.department,
+          { text: e.category ?? "", alignment: "center" },
+          { ...pct(e.scorePercent), alignment: "center" },
+        ]),
+      ),
+    );
+  } else if (summary.byQuestionnaire.length > 1) {
+    content.push(
+      ...block(
+        "По опросникам",
+        [th("Опросник"), th("Отделов", "center"), th("Трейсеров", "center"), th("Ср. %", "center")],
+        ["*", "auto", "auto", "auto"],
+        summary.byQuestionnaire.map((q) => [
+          q.name,
+          { text: String(q.departments ?? ""), alignment: "center" },
+          { text: String(q.sessions), alignment: "center" },
+          { ...pct(q.avgPercent), alignment: "center" },
+        ]),
+      ),
+    );
+  }
+
+  const doc = {
+    pageMargins: [30, 30, 30, 40] as [number, number, number, number],
+    content,
+    footer: (page: number, count: number) => ({
+      text: `Стр. ${page} из ${count}`,
+      alignment: "center",
+      fontSize: 8,
+      color: "#999",
+      margin: [0, 10, 0, 0],
+    }),
     styles: {
-      h1: { fontSize: 16, bold: true, margin: [0, 0, 0, 4] },
-      h2: { fontSize: 12, bold: true, margin: [0, 6, 0, 4] },
+      h1: { fontSize: 16, bold: true, color: "#222", margin: [0, 0, 0, 2] },
+      h2: { fontSize: 12, bold: true, color: ACCENT, margin: [0, 4, 0, 4] },
+      kpiVal: { fontSize: 18, bold: true },
+      kpiLabel: { fontSize: 8, color: "#666" },
     },
     defaultStyle: { fontSize: 9 },
   };
