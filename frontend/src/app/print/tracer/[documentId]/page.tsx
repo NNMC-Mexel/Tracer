@@ -150,10 +150,6 @@ export default function TracerPrintPage() {
           <b>Проверенные сотрудники:</b> {data.participants!.map((p) => p.fullName).join(", ")}
         </div>
       )}
-
-      <div className="footer">
-        Аудитор: {data.auditorName ?? "____________"} &nbsp;&nbsp; Подпись: <span className="sign-line" />
-      </div>
     </div>
   );
 }
