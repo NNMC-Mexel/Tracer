@@ -2,6 +2,10 @@
  * Отчёты: агрегированная статистика по трейсерам.
  * GET /api/reports/years   — годы, по которым есть данные
  * GET /api/reports/summary — сводка за период (фильтры: from, to, departmentId, questionnaireId, auditorId)
+ *
+ * Логика %:
+ *  - внутри отдела: средний % по проверенным сотрудникам отдела;
+ *  - общий % по опроснику/периоду: среднее по отделам (каждый отдел весит одинаково).
  */
 
 type Num = number | string | null | undefined;
@@ -41,108 +45,121 @@ export default {
     if (questionnaireId) where.questionnaire = Number(questionnaireId);
     if (auditorId) where.auditor = Number(auditorId);
 
-    const sessions = await strapi.db
-      .query("api::tracer-session.tracer-session")
-      .findMany({
-        where,
-        populate: { department: true, questionnaire: true },
-        orderBy: { date: "asc" },
-        limit: 1000000,
-      });
+    const sessions = await strapi.db.query("api::tracer-session.tracer-session").findMany({
+      where,
+      populate: { department: true, questionnaire: true },
+      orderBy: { date: "asc" },
+      limit: 1000000,
+    });
 
-    // KPI
-    const avgPercent = avg(sessions.map((s) => s.scorePercent));
+    // уровни и число листов
     const levelCounts = { high: 0, medium: 0, low: 0 } as Record<string, number>;
     sessions.forEach((s) => {
       if (s.complianceLevel && levelCounts[s.complianceLevel] !== undefined)
         levelCounts[s.complianceLevel]++;
     });
 
-    // группировки
-    type Bucket = { scores: Num[]; sessions: number };
-    const byDept = new Map<number, Bucket & { departmentId?: number; name: string }>();
-    const byQ = new Map<number, Bucket & { id?: number; name: string }>();
-    const byMonth = new Map<string, Bucket & { month: string }>();
-
+    // число сессий (листов) по отделам и по опросникам
+    const sessByDept = new Map<number, number>();
+    const sessByQ = new Map<number, number>();
+    const byMonthMap = new Map<string, { scores: Num[]; sessions: number }>();
     for (const s of sessions) {
-      const dKey = s.department?.id ?? 0;
-      if (!byDept.has(dKey))
-        byDept.set(dKey, { departmentId: s.department?.id, name: s.department?.name ?? "—", scores: [], sessions: 0 });
-      const db = byDept.get(dKey)!;
-      db.scores.push(s.scorePercent);
-      db.sessions++;
-
-      const qKey = s.questionnaire?.id ?? 0;
-      if (!byQ.has(qKey))
-        byQ.set(qKey, { id: s.questionnaire?.id, name: s.questionnaire?.name ?? "—", scores: [], sessions: 0 });
-      const qb = byQ.get(qKey)!;
-      qb.scores.push(s.scorePercent);
-      qb.sessions++;
-
+      sessByDept.set(s.department?.id ?? 0, (sessByDept.get(s.department?.id ?? 0) ?? 0) + 1);
+      sessByQ.set(s.questionnaire?.id ?? 0, (sessByQ.get(s.questionnaire?.id ?? 0) ?? 0) + 1);
       const m = String(s.date ?? "").slice(0, 7);
       if (m) {
-        if (!byMonth.has(m)) byMonth.set(m, { month: m, scores: [], sessions: 0 });
-        const mb = byMonth.get(m)!;
+        if (!byMonthMap.has(m)) byMonthMap.set(m, { scores: [], sessions: 0 });
+        const mb = byMonthMap.get(m)!;
         mb.scores.push(s.scorePercent);
         mb.sessions++;
       }
     }
 
-    // субъекты (проверенные люди) для подсчёта охвата
+    // все субъекты (в т.ч. чек-листы, где employee = null)
     const sessionIds = sessions.map((s) => s.id);
     const subjects = sessionIds.length
       ? await strapi.db.query("api::tracer-subject.tracer-subject").findMany({
-          where: { session: { id: { $in: sessionIds } }, employee: { id: { $notNull: true } } },
-          populate: { session: { populate: { department: true } }, employee: true },
+          where: { session: { id: { $in: sessionIds } } },
+          populate: {
+            session: { populate: { department: true, questionnaire: true } },
+            employee: true,
+          },
           limit: 1000000,
         })
       : [];
 
-    // distinct проверенные сотрудники по отделам
+    // агрегаты из субъектов
+    const subjByDept = new Map<number, { name: string; scores: Num[] }>();
     const auditedByDept = new Map<number, Set<number>>();
+    const qByDept = new Map<number, { name: string; depts: Map<number, Num[]> }>();
+
     for (const sub of subjects) {
-      const dId = sub.session?.department?.id ?? 0;
-      if (!auditedByDept.has(dId)) auditedByDept.set(dId, new Set());
-      if (sub.employee?.id) auditedByDept.get(dId)!.add(sub.employee.id);
+      const dk = sub.session?.department?.id ?? 0;
+      const dn = sub.session?.department?.name ?? "—";
+      const qk = sub.session?.questionnaire?.id ?? 0;
+      const qn = sub.session?.questionnaire?.name ?? "—";
+
+      if (!subjByDept.has(dk)) subjByDept.set(dk, { name: dn, scores: [] });
+      subjByDept.get(dk)!.scores.push(sub.scorePercent);
+
+      if (sub.employee?.id) {
+        if (!auditedByDept.has(dk)) auditedByDept.set(dk, new Set());
+        auditedByDept.get(dk)!.add(sub.employee.id);
+      }
+
+      if (!qByDept.has(qk)) qByDept.set(qk, { name: qn, depts: new Map() });
+      const depts = qByDept.get(qk)!.depts;
+      if (!depts.has(dk)) depts.set(dk, []);
+      depts.get(dk)!.push(sub.scorePercent);
     }
 
+    // по отделам: средний % по сотрудникам + охват
     const byDepartment = [];
-    for (const b of byDept.values()) {
+    for (const [dk, b] of subjByDept) {
       let totalEmployees: number | null = null;
       let coverage: number | null = null;
-      const audited = b.departmentId ? auditedByDept.get(b.departmentId)?.size ?? 0 : 0;
-      if (b.departmentId) {
+      const audited = dk ? auditedByDept.get(dk)?.size ?? 0 : 0;
+      if (dk) {
         totalEmployees = await strapi.db
           .query("api::employee.employee")
-          .count({ where: { department: b.departmentId, active: true } });
+          .count({ where: { department: dk, active: true } });
         coverage = totalEmployees ? Math.round((audited / totalEmployees) * 1000) / 10 : null;
       }
       byDepartment.push({
-        departmentId: b.departmentId,
+        departmentId: dk || undefined,
         name: b.name,
-        sessions: b.sessions,
+        sessions: sessByDept.get(dk) ?? 0,
         avgPercent: avg(b.scores),
         auditedEmployees: audited,
         totalEmployees,
         coverage,
       });
     }
-    byDepartment.sort((a, b) => b.sessions - a.sessions);
+    byDepartment.sort((a, b) => b.avgPercent - a.avgPercent);
 
-    const byQuestionnaire = [...byQ.values()].map((b) => ({
-      id: b.id,
-      name: b.name,
-      sessions: b.sessions,
-      avgPercent: avg(b.scores),
-    }));
+    // общий % = среднее по отделам (каждый отдел весит одинаково)
+    const avgPercent = avg(byDepartment.map((d) => d.avgPercent));
 
-    const monthly = [...byMonth.values()]
-      .sort((a, b) => a.month.localeCompare(b.month))
-      .map((b) => ({ month: b.month, sessions: b.sessions, avgPercent: avg(b.scores) }));
+    // по опросникам: среднее по отделам этого опросника
+    const byQuestionnaire = [...qByDept.entries()].map(([qk, q]) => {
+      const deptAvgs = [...q.depts.values()].map((arr) => avg(arr));
+      return {
+        id: qk || undefined,
+        name: q.name,
+        sessions: sessByQ.get(qk) ?? 0,
+        departments: q.depts.size,
+        avgPercent: avg(deptAvgs),
+      };
+    });
 
-    // разбивка по категориям персонала (ВМР/СМР/ММП/ДР) — из категории сотрудника
+    const monthly = [...byMonthMap.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([month, b]) => ({ month, sessions: b.sessions, avgPercent: avg(b.scores) }));
+
+    // по категориям персонала (только сотрудники)
     const byCatMap = new Map<string, { scores: Num[]; count: number }>();
     for (const sub of subjects) {
+      if (!sub.employee?.id) continue;
       const cat = sub.employee?.category || "—";
       if (!byCatMap.has(cat)) byCatMap.set(cat, { scores: [], count: 0 });
       const o = byCatMap.get(cat)!;
@@ -154,17 +171,33 @@ export default {
       .map(([category, o]) => ({ category, subjects: o.count, avgPercent: avg(o.scores) }))
       .sort((a, b) => CAT_ORDER.indexOf(a.category) - CAT_ORDER.indexOf(b.category));
 
+    // детализация по сотрудникам (только при выбранном опроснике)
+    const byEmployee = questionnaireId
+      ? subjects
+          .filter((s) => s.employee?.id)
+          .map((s) => ({
+            employeeId: s.employee.id,
+            fullName: s.employee.fullName ?? s.label ?? "—",
+            position: s.employee.position ?? s.positionSnapshot ?? "",
+            category: s.employee.category ?? "",
+            department: s.session?.department?.name ?? s.departmentSnapshot ?? "—",
+            scorePercent: s.scorePercent,
+          }))
+          .sort((a, b) => Number(a.scorePercent) - Number(b.scorePercent))
+      : [];
+
     ctx.body = {
       data: {
         kpi: {
           sessions: sessions.length,
-          subjects: subjects.length,
+          subjects: subjects.filter((s) => s.employee?.id).length,
           avgPercent,
           levelCounts,
         },
         byDepartment,
         byQuestionnaire,
         byCategory,
+        byEmployee,
         monthly,
       },
     };

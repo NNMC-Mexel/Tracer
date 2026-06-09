@@ -61,6 +61,20 @@ export async function exportSummaryExcel(summary: Summary, meta: Meta) {
   ];
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(mon), "Динамика");
 
+  if (summary.byEmployee.length > 0) {
+    const emp = [
+      ["ФИО", "Должность", "Отдел", "Категория", "%"],
+      ...summary.byEmployee.map((e) => [
+        e.fullName,
+        e.position ?? "",
+        e.department,
+        e.category ?? "",
+        e.scorePercent,
+      ]),
+    ];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(emp), "По сотрудникам");
+  }
+
   XLSX.writeFile(wb, `Отчёт_${meta.period}.xlsx`);
 }
 

@@ -20,12 +20,21 @@ export interface QStat {
   id?: number;
   name: string;
   sessions: number;
+  departments?: number;
   avgPercent: number;
 }
 export interface CategoryStat {
   category: string;
   subjects: number;
   avgPercent: number;
+}
+export interface EmployeeStat {
+  employeeId: number;
+  fullName: string;
+  position?: string;
+  category?: string;
+  department: string;
+  scorePercent: number;
 }
 export interface MonthStat {
   month: string;
@@ -37,6 +46,7 @@ export interface Summary {
   byDepartment: DeptStat[];
   byQuestionnaire: QStat[];
   byCategory: CategoryStat[];
+  byEmployee: EmployeeStat[];
   monthly: MonthStat[];
 }
 

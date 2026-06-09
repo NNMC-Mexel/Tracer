@@ -347,9 +347,10 @@ function Overview({
           dataSource={summary.byQuestionnaire}
           columns={[
             { title: "Опросник", dataIndex: "name", key: "name" },
-            { title: "Трейсеров", dataIndex: "sessions", key: "sessions", width: 120 },
+            { title: "Отделов", dataIndex: "departments", key: "departments", width: 90 },
+            { title: "Трейсеров", dataIndex: "sessions", key: "sessions", width: 100 },
             {
-              title: "Средний %",
+              title: "Средний % (по отделам)",
               dataIndex: "avgPercent",
               key: "avg",
               width: 200,
@@ -384,6 +385,31 @@ function Overview({
           ]}
         />
       </Card>
+
+      {summary.byEmployee.length > 0 && (
+        <Card title="По сотрудникам (детализация выбранного опросника)">
+          <Table
+            rowKey={(r) => `${r.employeeId}-${r.scorePercent}`}
+            size="small"
+            dataSource={summary.byEmployee}
+            pagination={{ pageSize: 50, showSizeChanger: true }}
+            columns={[
+              { title: "ФИО", dataIndex: "fullName", key: "fullName" },
+              { title: "Должность", dataIndex: "position", key: "position" },
+              { title: "Отдел", dataIndex: "department", key: "department" },
+              { title: "Категория", dataIndex: "category", key: "category", width: 90 },
+              {
+                title: "%",
+                dataIndex: "scorePercent",
+                key: "p",
+                width: 70,
+                sorter: (a, b) => a.scorePercent - b.scorePercent,
+                render: (v: number) => <b>{v}%</b>,
+              },
+            ]}
+          />
+        </Card>
+      )}
     </div>
   );
 }
