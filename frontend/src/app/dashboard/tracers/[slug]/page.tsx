@@ -10,14 +10,12 @@ import {
   Input,
   Button,
   Table,
-  Segmented,
   Space,
   Tag,
   Spin,
   Result,
   App,
   Statistic,
-  Tooltip,
   Alert,
 } from "antd";
 import { ArrowLeftOutlined, DeleteOutlined, SaveOutlined } from "@ant-design/icons";
@@ -27,6 +25,7 @@ import { useAuth } from "@/lib/useAuth";
 import { getSessionDetail } from "@/lib/reports";
 import { listDepartments, type Department, type Employee } from "@/lib/employees";
 import EmployeePicker from "@/components/EmployeePicker";
+import AnswerSelect from "@/components/AnswerSelect";
 import {
   listQuestionnaires,
   submitTracer,
@@ -40,16 +39,9 @@ import {
 
 const { Title, Text, Paragraph } = Typography;
 
-const ANSWER_OPTIONS = [
-  { label: "Соответствует", value: "full" as AnswerValue },
-  { label: "Частично", value: "partial" as AnswerValue },
-  { label: "Не соответствует", value: "none" as AnswerValue },
-];
-const ANSWER_OPTIONS_COMPACT = [
-  { label: <Tooltip title="Соответствует">✓</Tooltip>, value: "full" as AnswerValue },
-  { label: <Tooltip title="Частично">±</Tooltip>, value: "partial" as AnswerValue },
-  { label: <Tooltip title="Не соответствует">✗</Tooltip>, value: "none" as AnswerValue },
-];
+/** Отдел по умолчанию для чек-листа лечебного питания. */
+const OLP_SLUG = "olp-nutrition";
+const OLP_DEPT_NAME = "Отдел лечебного питания";
 
 function percent(answers: Record<number, AnswerValue>, count: number): number {
   if (!count) return 0;
@@ -109,6 +101,13 @@ export default function TracerFormPage() {
   useEffect(() => {
     listDepartments().then(setDepartments).catch(() => {});
   }, []);
+
+  // ОЛП (лечебное питание): по умолчанию привязываем к одному отделу
+  useEffect(() => {
+    if (editId || slug !== OLP_SLUG || departmentId || departments.length === 0) return;
+    const d = departments.find((x) => x.name === OLP_DEPT_NAME);
+    if (d) setDepartmentId(d.id);
+  }, [slug, departments, editId, departmentId]);
 
   // режим редактирования: загрузка существующего трейсера
   useEffect(() => {
@@ -351,16 +350,15 @@ export default function TracerFormPage() {
     ...questionnaire.criteria.map((c) => ({
       title: c.text,
       key: `c${c.id}`,
-      width: 150,
+      width: 160,
       render: (_: unknown, e: Employee) => (
-        <Segmented
-          size="small"
-          options={ANSWER_OPTIONS_COMPACT}
+        <AnswerSelect
+          compact
           value={empAnswers[e.id]?.[c.id] ?? "full"}
           onChange={(v) =>
             setEmpAnswers((prev) => ({
               ...prev,
-              [e.id]: { ...prev[e.id], [c.id]: v as AnswerValue },
+              [e.id]: { ...prev[e.id], [c.id]: v },
             }))
           }
         />
@@ -489,10 +487,9 @@ export default function TracerFormPage() {
                     <Text style={{ flex: 1, minWidth: 240 }}>
                       {idx + 1}. {c.text}
                     </Text>
-                    <Segmented
-                      options={ANSWER_OPTIONS}
+                    <AnswerSelect
                       value={checklist[c.id] ?? "full"}
-                      onChange={(v) => setChecklist((p) => ({ ...p, [c.id]: v as AnswerValue }))}
+                      onChange={(v) => setChecklist((p) => ({ ...p, [c.id]: v }))}
                     />
                   </div>
                   <Input

@@ -49,6 +49,12 @@ export async function exportSummaryExcel(summary: Summary, meta: Meta) {
   ];
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ques), "По опросникам");
 
+  const cat = [
+    ["Категория", "Проверено", "Средний %"],
+    ...summary.byCategory.map((c) => [c.category, c.subjects, c.avgPercent]),
+  ];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(cat), "По категориям");
+
   const mon = [
     ["Месяц", "Трейсеров", "Средний %"],
     ...summary.monthly.map((m) => [m.month, m.sessions, m.avgPercent]),

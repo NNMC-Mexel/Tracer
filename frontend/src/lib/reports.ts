@@ -22,6 +22,11 @@ export interface QStat {
   sessions: number;
   avgPercent: number;
 }
+export interface CategoryStat {
+  category: string;
+  subjects: number;
+  avgPercent: number;
+}
 export interface MonthStat {
   month: string;
   sessions: number;
@@ -31,8 +36,16 @@ export interface Summary {
   kpi: SummaryKpi;
   byDepartment: DeptStat[];
   byQuestionnaire: QStat[];
+  byCategory: CategoryStat[];
   monthly: MonthStat[];
 }
+
+export const CATEGORY_LABEL: Record<string, string> = {
+  ВМР: "ВМР — врачи",
+  СМР: "СМР — средний медперсонал",
+  ММП: "ММП — младший медперсонал",
+  ДР: "ДР — другой персонал",
+};
 
 export interface SummaryParams {
   from?: string;

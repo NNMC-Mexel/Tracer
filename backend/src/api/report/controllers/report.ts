@@ -140,6 +140,20 @@ export default {
       .sort((a, b) => a.month.localeCompare(b.month))
       .map((b) => ({ month: b.month, sessions: b.sessions, avgPercent: avg(b.scores) }));
 
+    // разбивка по категориям персонала (ВМР/СМР/ММП/ДР) — из категории сотрудника
+    const byCatMap = new Map<string, { scores: Num[]; count: number }>();
+    for (const sub of subjects) {
+      const cat = sub.employee?.category || "—";
+      if (!byCatMap.has(cat)) byCatMap.set(cat, { scores: [], count: 0 });
+      const o = byCatMap.get(cat)!;
+      o.scores.push(sub.scorePercent);
+      o.count++;
+    }
+    const CAT_ORDER = ["ВМР", "СМР", "ММП", "ДР"];
+    const byCategory = [...byCatMap.entries()]
+      .map(([category, o]) => ({ category, subjects: o.count, avgPercent: avg(o.scores) }))
+      .sort((a, b) => CAT_ORDER.indexOf(a.category) - CAT_ORDER.indexOf(b.category));
+
     ctx.body = {
       data: {
         kpi: {
@@ -150,6 +164,7 @@ export default {
         },
         byDepartment,
         byQuestionnaire,
+        byCategory,
         monthly,
       },
     };

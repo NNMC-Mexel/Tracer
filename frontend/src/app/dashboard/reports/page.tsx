@@ -49,6 +49,7 @@ import {
   getJournal,
   getSessionDetail,
   monthLabel,
+  CATEGORY_LABEL,
   type Summary,
   type JournalRow,
 } from "@/lib/reports";
@@ -347,6 +348,32 @@ function Overview({
           columns={[
             { title: "Опросник", dataIndex: "name", key: "name" },
             { title: "Трейсеров", dataIndex: "sessions", key: "sessions", width: 120 },
+            {
+              title: "Средний %",
+              dataIndex: "avgPercent",
+              key: "avg",
+              width: 200,
+              render: (v: number) => <Progress percent={v} size="small" />,
+            },
+          ]}
+        />
+      </Card>
+
+      <Card title="По категориям персонала (ВМР / СМР / ММП / ДР)">
+        <Table
+          rowKey="category"
+          size="small"
+          pagination={false}
+          dataSource={summary.byCategory}
+          locale={{ emptyText: "Нет данных (категории проставляются по должности)" }}
+          columns={[
+            {
+              title: "Категория",
+              dataIndex: "category",
+              key: "category",
+              render: (c: string) => CATEGORY_LABEL[c] ?? c,
+            },
+            { title: "Проверено", dataIndex: "subjects", key: "subjects", width: 120 },
             {
               title: "Средний %",
               dataIndex: "avgPercent",
