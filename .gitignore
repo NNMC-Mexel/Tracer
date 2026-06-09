@@ -40,3 +40,8 @@ Thumbs.db
 # Uploads (Strapi local provider)
 backend/public/uploads/*
 !backend/public/uploads/.gitkeep
+
+# Test artifacts
+test-results/
+playwright-report/
+.codex-qa.spec.js
