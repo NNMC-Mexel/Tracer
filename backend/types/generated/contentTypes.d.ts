@@ -586,6 +586,42 @@ export interface ApiOrganizationOrganization
   };
 }
 
+export interface ApiProgramProgram extends Struct.CollectionTypeSchema {
+  collectionName: 'programs';
+  info: {
+    description: '\u041D\u0430\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0435 \u0430\u0443\u0434\u0438\u0442\u0430 (\u042D\u043F\u0438\u0434\u0435\u043C\u0438\u043E\u043B\u043E\u0433\u0438\u044F, \u041E\u0442\u0434\u0435\u043B \u043A\u0430\u0447\u0435\u0441\u0442\u0432\u0430 \u0438 \u0442.\u0434.)';
+    displayName: '\u041D\u0430\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0435';
+    pluralName: 'programs';
+    singularName: 'program';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::program.program'
+    > &
+      Schema.Attribute.Private;
+    name: Schema.Attribute.String & Schema.Attribute.Required;
+    publishedAt: Schema.Attribute.DateTime;
+    questionnaires: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::questionnaire.questionnaire'
+    >;
+    slug: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiQuestionnaireQuestionnaire
   extends Struct.CollectionTypeSchema {
   collectionName: 'questionnaires';
@@ -600,6 +636,7 @@ export interface ApiQuestionnaireQuestionnaire
   };
   attributes: {
     active: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    allowNa: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -616,7 +653,11 @@ export interface ApiQuestionnaireQuestionnaire
       Schema.Attribute.Private;
     name: Schema.Attribute.String & Schema.Attribute.Required;
     order: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    program: Schema.Attribute.Relation<'manyToOne', 'api::program.program'>;
     publishedAt: Schema.Attribute.DateTime;
+    scale: Schema.Attribute.Enumeration<['three_level', 'binary']> &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'three_level'>;
     slug: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.Unique;
@@ -1207,6 +1248,7 @@ export interface PluginUsersPermissionsUser
       Schema.Attribute.SetMinMaxLength<{
         minLength: 6;
       }>;
+    program: Schema.Attribute.Relation<'manyToOne', 'api::program.program'>;
     provider: Schema.Attribute.String;
     publishedAt: Schema.Attribute.DateTime;
     resetPasswordToken: Schema.Attribute.String & Schema.Attribute.Private;
@@ -1241,6 +1283,7 @@ declare module '@strapi/strapi' {
       'api::department.department': ApiDepartmentDepartment;
       'api::employee.employee': ApiEmployeeEmployee;
       'api::organization.organization': ApiOrganizationOrganization;
+      'api::program.program': ApiProgramProgram;
       'api::questionnaire.questionnaire': ApiQuestionnaireQuestionnaire;
       'api::tracer-session.tracer-session': ApiTracerSessionTracerSession;
       'api::tracer-subject.tracer-subject': ApiTracerSubjectTracerSubject;

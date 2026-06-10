@@ -18,9 +18,14 @@ function avg(nums: Num[]): number {
 
 export default {
   async years(ctx) {
+    const { programId } = ctx.query as Record<string, string>;
     const rows = await strapi.db
       .query("api::tracer-session.tracer-session")
-      .findMany({ select: ["date"], limit: 1000000 });
+      .findMany({
+        select: ["date"],
+        where: programId ? { questionnaire: { program: Number(programId) } } : {},
+        limit: 1000000,
+      });
     const years = new Set<number>([new Date().getFullYear()]);
     for (const r of rows) {
       if (r.date) years.add(new Date(r.date).getFullYear());
@@ -29,7 +34,7 @@ export default {
   },
 
   async summary(ctx) {
-    const { from, to, departmentId, questionnaireId, auditorId } = ctx.query as Record<
+    const { from, to, departmentId, questionnaireId, auditorId, programId } = ctx.query as Record<
       string,
       string
     >;
@@ -43,6 +48,7 @@ export default {
     }
     if (departmentId) where.department = Number(departmentId);
     if (questionnaireId) where.questionnaire = Number(questionnaireId);
+    else if (programId) where.questionnaire = { program: Number(programId) };
     if (auditorId) where.auditor = Number(auditorId);
 
     const sessions = await strapi.db.query("api::tracer-session.tracer-session").findMany({

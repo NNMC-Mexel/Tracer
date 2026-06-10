@@ -5,24 +5,33 @@ import { Card, Typography, Row, Col, Tag, Spin, Empty } from "antd";
 import { TeamOutlined, ApartmentOutlined, RightOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { listQuestionnaires, type Questionnaire } from "@/lib/tracers";
+import { useAuth } from "@/lib/useAuth";
 
 const { Title, Paragraph, Text } = Typography;
 
 export default function TracersListPage() {
   const router = useRouter();
+  const { user, loading } = useAuth();
   const [items, setItems] = useState<Questionnaire[] | null>(null);
 
   useEffect(() => {
-    listQuestionnaires()
+    if (loading) return;
+    // показываем только опросники направления пользователя (если оно задано)
+    listQuestionnaires(user?.program?.id)
       .then(setItems)
       .catch(() => setItems([]));
-  }, []);
+  }, [loading, user?.program?.id]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <Card>
         <Title level={4} style={{ marginTop: 0 }}>
           Проведение трейсера
+          {user?.program?.name ? (
+            <Tag color="purple" style={{ marginLeft: 12 }}>
+              {user.program.name}
+            </Tag>
+          ) : null}
         </Title>
         <Paragraph type="secondary" style={{ marginBottom: 0 }}>
           Выберите опросник. У каждого — своя форма и своя статистика. Результат

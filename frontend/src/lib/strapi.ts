@@ -17,6 +17,8 @@ export interface StrapiUser {
   email: string;
   blocked?: boolean;
   confirmed?: boolean;
+  /** Направление аудита пользователя (Эпидемиология / Отдел качества). */
+  program?: { id: number; name: string; slug: string } | null;
 }
 
 export interface AuthResult {
@@ -99,7 +101,7 @@ export async function login(
 export async function fetchMe(): Promise<StrapiUser | null> {
   if (!getToken()) return null;
   try {
-    return await strapiFetch<StrapiUser>("/api/users/me");
+    return await strapiFetch<StrapiUser>("/api/users/me?populate=program");
   } catch {
     return null;
   }

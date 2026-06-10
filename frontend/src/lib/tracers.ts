@@ -1,9 +1,11 @@
 import { strapiFetch } from "./strapi";
 import type { Paginated } from "./employees";
 
-export type AnswerValue = "full" | "partial" | "none";
+/** «na» — «неприменимо», в расчёт не входит. */
+export type AnswerValue = "full" | "partial" | "none" | "na";
 
-export const ANSWER_WEIGHT: Record<AnswerValue, number> = {
+/** Веса оценок. «na» отсутствует — исключается из расчёта. */
+export const ANSWER_WEIGHT: Record<string, number> = {
   full: 1,
   partial: 0.5,
   none: 0,
@@ -16,6 +18,14 @@ export interface Criterion {
 }
 
 export type SubjectType = "department" | "employee";
+/** Шкала ответов: 3 уровня (Соотв./Частично/Не соотв.) или Да/Нет. */
+export type Scale = "three_level" | "binary";
+
+export interface Program {
+  id: number;
+  name: string;
+  slug: string;
+}
 
 export interface Questionnaire {
   id: number;
@@ -23,15 +33,19 @@ export interface Questionnaire {
   slug: string;
   name: string;
   subjectType: SubjectType;
+  scale: Scale;
+  allowNa?: boolean;
+  program?: Program | null;
   description?: string;
   order: number;
   criteria: Criterion[];
 }
 
-/** Список опросников (активных) с критериями, по порядку. */
-export async function listQuestionnaires(): Promise<Questionnaire[]> {
+/** Список опросников (активных) с критериями, по порядку. Можно фильтровать по направлению. */
+export async function listQuestionnaires(programId?: number): Promise<Questionnaire[]> {
   const qs = new URLSearchParams();
   qs.set("filters[active][$eq]", "true");
+  if (programId) qs.set("filters[program][id][$eq]", String(programId));
   qs.set("populate[criteria][sort][0]", "order:asc");
   qs.set("sort[0]", "order:asc");
   qs.set("pagination[pageSize]", "100");

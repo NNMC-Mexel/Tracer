@@ -64,11 +64,14 @@ import {
   exportJournalExcel,
 } from "@/lib/reports-export";
 import { LEVEL_LABEL, listQuestionnaires, type Questionnaire } from "@/lib/tracers";
+import { useAuth } from "@/lib/useAuth";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 
 export default function ReportsPage() {
+  const { user } = useAuth();
+  const programId = user?.program?.id;
   const [years, setYears] = useState<number[]>([dayjs().year()]);
   const [year, setYear] = useState<number>(dayjs().year());
   const [range, setRange] = useState<[Dayjs, Dayjs]>([
@@ -81,8 +84,8 @@ export default function ReportsPage() {
   const periodLabel = `${range[0].format("DD.MM.YYYY")}—${range[1].format("DD.MM.YYYY")}`;
 
   useEffect(() => {
-    getReportYears().then(setYears).catch(() => {});
-  }, []);
+    getReportYears(programId).then(setYears).catch(() => {});
+  }, [programId]);
 
   function onYearChange(y: number) {
     setYear(y);
@@ -131,8 +134,8 @@ export default function ReportsPage() {
 
       <Tabs
         items={[
-          { key: "summary", label: "Сводка", children: <DrillDown from={from} to={to} periodLabel={periodLabel} /> },
-          { key: "journal", label: "Журнал", children: <Journal from={from} to={to} periodLabel={periodLabel} /> },
+          { key: "summary", label: "Сводка", children: <DrillDown from={from} to={to} periodLabel={periodLabel} programId={programId} /> },
+          { key: "journal", label: "Журнал", children: <Journal from={from} to={to} periodLabel={periodLabel} programId={programId} /> },
         ]}
       />
     </div>
@@ -161,7 +164,7 @@ function MonthlyChart({ summary }: { summary: Summary }) {
 }
 
 /** Проваливающийся отчёт: Трейсеры → Отделы → Сотрудники. */
-function DrillDown({ from, to, periodLabel }: { from: string; to: string; periodLabel: string }) {
+function DrillDown({ from, to, periodLabel, programId }: { from: string; to: string; periodLabel: string; programId?: number }) {
   const { message } = App.useApp();
   const [overall, setOverall] = useState<Summary | null>(null);
   const [tracer, setTracer] = useState<Summary | null>(null);
@@ -172,13 +175,13 @@ function DrillDown({ from, to, periodLabel }: { from: string; to: string; period
   // уровень 0 — список трейсеров
   useEffect(() => {
     setLoading(true);
-    getSummary({ from, to })
+    getSummary({ from, to, programId })
       .then(setOverall)
       .catch(() => message.error("Не удалось загрузить отчёт"))
       .finally(() => setLoading(false));
     setSelQ(null);
     setSelDept(null);
-  }, [from, to, message]);
+  }, [from, to, programId, message]);
 
   // уровень 1/2 — по выбранному трейсеру
   useEffect(() => {
@@ -187,12 +190,12 @@ function DrillDown({ from, to, periodLabel }: { from: string; to: string; period
       return;
     }
     setLoading(true);
-    getSummary({ from, to, questionnaireId: selQ.id })
+    getSummary({ from, to, questionnaireId: selQ.id, programId })
       .then(setTracer)
       .catch(() => message.error("Не удалось загрузить трейсер"))
       .finally(() => setLoading(false));
     setSelDept(null);
-  }, [selQ, from, to, message]);
+  }, [selQ, from, to, programId, message]);
 
   async function doExcel() {
     const s = selQ ? tracer : overall;
@@ -418,12 +421,14 @@ function Journal({
   departmentId,
   questionnaireId,
   periodLabel,
+  programId,
 }: {
   from: string;
   to: string;
   departmentId?: number;
   questionnaireId?: number;
   periodLabel: string;
+  programId?: number;
 }) {
   const { message } = App.useApp();
   const router = useRouter();
@@ -437,8 +442,8 @@ function Journal({
   const [questionnaires, setQuestionnaires] = useState<Questionnaire[]>([]);
 
   useEffect(() => {
-    listQuestionnaires().then(setQuestionnaires).catch(() => {});
-  }, []);
+    listQuestionnaires(programId).then(setQuestionnaires).catch(() => {});
+  }, [programId]);
 
   async function onDelete(r: JournalRow) {
     try {
@@ -452,14 +457,14 @@ function Journal({
 
   const load = useCallback(() => {
     setLoading(true);
-    getJournal({ from, to, departmentId, questionnaireId: qId, auditor, page, pageSize: 20 })
+    getJournal({ from, to, departmentId, questionnaireId: qId, auditor, programId, page, pageSize: 20 })
       .then((res) => {
         setRows(res.data);
         setTotal(res.meta.pagination.total);
       })
       .catch(() => message.error("Не удалось загрузить журнал"))
       .finally(() => setLoading(false));
-  }, [from, to, departmentId, qId, auditor, page, message]);
+  }, [from, to, departmentId, qId, auditor, programId, page, message]);
 
   useEffect(() => {
     load();
@@ -578,9 +583,17 @@ function Journal({
             full: { s: "✓", c: "#52c41a" },
             partial: { s: "±", c: "#faad14" },
             none: { s: "✗", c: "#ff4d4f" },
+            na: { s: "Н/П", c: "#8c8c8c" },
           };
           const crit = (detail.criteriaSnapshot ?? []).slice().sort((a, b) => a.order - b.order);
           const isEmp = detail.questionnaire?.subjectType === "employee";
+          const isBin = detail.questionnaire?.scale === "binary";
+          const word = (v?: string) =>
+            v === "full" ? (isBin ? "Да" : "Соотв.")
+            : v === "none" ? (isBin ? "Нет" : "Не соотв.")
+            : v === "partial" ? "Частично"
+            : v === "na" ? "Неприменимо"
+            : "";
           return (
             <div>
               <p>
@@ -647,8 +660,9 @@ function Journal({
                       key: "a",
                       width: 130,
                       render: (_, c) => {
-                        const a = ANS[detail.subjects?.[0]?.answers?.[c.id] as string];
-                        return a ? <span style={{ color: a.c, fontWeight: 700 }}>{a.s} {detail.subjects?.[0]?.answers?.[c.id] === "full" ? "Соотв." : detail.subjects?.[0]?.answers?.[c.id] === "partial" ? "Частично" : "Не соотв."}</span> : "";
+                        const v = detail.subjects?.[0]?.answers?.[c.id] as string;
+                        const a = ANS[v];
+                        return a ? <span style={{ color: a.c, fontWeight: 700 }}>{a.s} {word(v)}</span> : "";
                       },
                     },
                     { title: "Примечание", key: "note", render: (_, c) => detail.subjects?.[0]?.notes?.[c.id] ?? "" },
@@ -656,7 +670,8 @@ function Journal({
                 />
               )}
               <div style={{ marginTop: 6, fontSize: 12, color: "#888" }}>
-                ✓ соответствует · ± частично · ✗ не соответствует
+                {isBin ? "✓ да · ✗ нет" : "✓ соответствует · ± частично · ✗ не соответствует"}
+                {detail.questionnaire?.allowNa ? " · Н/П неприменимо" : ""}
               </div>
             </div>
           );

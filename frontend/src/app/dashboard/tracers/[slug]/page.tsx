@@ -46,8 +46,16 @@ const OLP_DEPT_NAME = "Отдел лечебного питания";
 function percent(answers: Record<number, AnswerValue>, count: number): number {
   if (!count) return 0;
   let sum = 0;
-  for (const v of Object.values(answers)) sum += ANSWER_WEIGHT[v] ?? 0;
-  return Math.round((sum / count) * 1000) / 10;
+  let na = 0;
+  for (const v of Object.values(answers)) {
+    if (v === "na") {
+      na++; // «неприменимо» — вне расчёта
+      continue;
+    }
+    sum += ANSWER_WEIGHT[v] ?? 0;
+  }
+  const denom = count - na;
+  return denom ? Math.round((sum / denom) * 1000) / 10 : 0;
 }
 
 export default function TracerFormPage() {
@@ -379,6 +387,8 @@ export default function TracerFormPage() {
       render: (_: unknown, e: Employee) => (
         <AnswerSelect
           compact
+          scale={questionnaire.scale}
+          allowNa={questionnaire.allowNa}
           value={empAnswers[e.id]?.[c.id]}
           onChange={(v) =>
             setEmpAnswers((prev) => ({
@@ -514,6 +524,8 @@ export default function TracerFormPage() {
                       {idx + 1}. {c.text}
                     </Text>
                     <AnswerSelect
+                      scale={questionnaire.scale}
+                      allowNa={questionnaire.allowNa}
                       value={checklist[c.id]}
                       onChange={(v) => setChecklist((p) => ({ ...p, [c.id]: v }))}
                     />

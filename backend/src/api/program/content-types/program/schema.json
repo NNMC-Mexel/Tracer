@@ -1,0 +1,31 @@
+{
+  "kind": "collectionType",
+  "collectionName": "programs",
+  "info": {
+    "singularName": "program",
+    "pluralName": "programs",
+    "displayName": "Направление",
+    "description": "Направление аудита (Эпидемиология, Отдел качества и т.д.)"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "slug": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "questionnaires": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::questionnaire.questionnaire",
+      "mappedBy": "program"
+    }
+  }
+}

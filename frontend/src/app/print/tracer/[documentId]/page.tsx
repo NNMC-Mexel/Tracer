@@ -8,12 +8,14 @@ import dayjs from "dayjs";
 import { useAuth } from "@/lib/useAuth";
 import { getSessionDetail, type JournalRow } from "@/lib/reports";
 
-const ANS_SYMBOL: Record<string, string> = { full: "+", partial: "±", none: "−" };
-const ANS_WORD: Record<string, string> = {
-  full: "Соответствует",
-  partial: "Частично",
-  none: "Не соответствует",
-};
+const ANS_SYMBOL: Record<string, string> = { full: "+", partial: "±", none: "−", na: "Н/П" };
+function answerWord(v: string | undefined, binary: boolean): string {
+  if (v === "full") return binary ? "Да" : "Соответствует";
+  if (v === "none") return binary ? "Нет" : "Не соответствует";
+  if (v === "partial") return "Частично";
+  if (v === "na") return "Неприменимо";
+  return "";
+}
 
 export default function TracerPrintPage() {
   const { documentId } = useParams<{ documentId: string }>();
@@ -34,6 +36,7 @@ export default function TracerPrintPage() {
 
   const criteria = (data.criteriaSnapshot ?? []).slice().sort((a, b) => a.order - b.order);
   const isEmployee = data.questionnaire?.subjectType === "employee";
+  const isBinary = data.questionnaire?.scale === "binary";
   const subjects = data.subjects ?? [];
 
   return (
@@ -117,7 +120,10 @@ export default function TracerPrintPage() {
               ))}
             </tbody>
           </table>
-          <div className="legend">Обозначения: + соответствует, ± частично, − не соответствует</div>
+          <div className="legend">
+            Обозначения: {isBinary ? "+ да, − нет" : "+ соответствует, ± частично, − не соответствует"}
+            {data.questionnaire?.allowNa ? ", Н/П неприменимо" : ""}
+          </div>
         </>
       ) : (
         <table className="doc">
@@ -137,7 +143,7 @@ export default function TracerPrintPage() {
                 <tr key={c.id}>
                   <td className="sym">{idx + 1}</td>
                   <td>{c.text}</td>
-                  <td>{ANS_WORD[v] ?? ""}</td>
+                  <td>{answerWord(v, isBinary)}</td>
                   <td>{subj?.notes?.[c.id] ?? ""}</td>
                 </tr>
               );

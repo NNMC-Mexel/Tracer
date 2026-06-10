@@ -34,6 +34,8 @@ export default {
     await ensurePermissions(strapi, "authenticated", [
       "api::organization.organization.find",
       "api::organization.organization.findOne",
+      "api::program.program.find",
+      "api::program.program.findOne",
       "api::department.department.find",
       "api::department.department.findOne",
       "api::employee.employee.find",

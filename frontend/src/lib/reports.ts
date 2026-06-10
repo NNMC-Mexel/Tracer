@@ -63,10 +63,13 @@ export interface SummaryParams {
   departmentId?: number;
   questionnaireId?: number;
   auditorId?: number;
+  programId?: number;
 }
 
-export async function getReportYears(): Promise<number[]> {
-  const res = await strapiFetch<{ data: number[] }>("/api/reports/years");
+export async function getReportYears(programId?: number): Promise<number[]> {
+  const qs = new URLSearchParams();
+  if (programId) qs.set("programId", String(programId));
+  const res = await strapiFetch<{ data: number[] }>(`/api/reports/years?${qs.toString()}`);
   return res.data;
 }
 
@@ -76,6 +79,7 @@ export async function getSummary(params: SummaryParams): Promise<Summary> {
   if (params.to) qs.set("to", params.to);
   if (params.departmentId) qs.set("departmentId", String(params.departmentId));
   if (params.questionnaireId) qs.set("questionnaireId", String(params.questionnaireId));
+  if (params.programId) qs.set("programId", String(params.programId));
   const res = await strapiFetch<{ data: Summary }>(`/api/reports/summary?${qs.toString()}`);
   return res.data;
 }
@@ -94,7 +98,7 @@ export interface JournalRow {
   criteriaSnapshot?: { id: number; text: string; order: number }[];
   participants?: { employeeId?: number; fullName?: string; position?: string }[];
   department?: { id: number; name: string } | null;
-  questionnaire?: { id: number; name: string; slug: string; subjectType: string } | null;
+  questionnaire?: { id: number; name: string; slug: string; subjectType: string; scale?: string; allowNa?: boolean } | null;
   subjects?: {
     id: number;
     label?: string;
@@ -130,6 +134,8 @@ export async function getJournal(
     qs.set("filters[questionnaire][id][$eq]", String(params.questionnaireId));
   if (params.auditor && params.auditor.trim())
     qs.set("filters[auditorName][$containsi]", params.auditor.trim());
+  if (params.programId)
+    qs.set("filters[questionnaire][program][id][$eq]", String(params.programId));
   qs.set("populate[0]", "department");
   qs.set("populate[1]", "questionnaire");
   qs.set("sort[0]", "date:desc");

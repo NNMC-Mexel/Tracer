@@ -73,11 +73,14 @@ export default factories.createCoreController(TS, ({ strapi }) => ({
 
     const computed = subjects.map((s) => {
       let sum = 0;
+      let applicable = 0;
       for (const c of criteria) {
-        const v = s.answers?.[c.id] ?? s.answers?.[String(c.id)];
-        sum += WEIGHT[v as string] ?? 0;
+        const v = (s.answers?.[c.id] ?? s.answers?.[String(c.id)]) as string;
+        if (v === "na") continue; // «не применимо» — вне расчёта
+        applicable++;
+        sum += WEIGHT[v] ?? 0;
       }
-      const pct = criteriaCount ? round1((sum / criteriaCount) * 100) : 0;
+      const pct = applicable ? round1((sum / applicable) * 100) : 0;
       return { input: s, pct };
     });
     const sessionPct = computed.length
