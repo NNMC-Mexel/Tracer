@@ -70,8 +70,10 @@ const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 
 export default function ReportsPage() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const programId = user?.program?.id;
+  // ждём, пока подтянется направление пользователя — иначе первый запрос уйдёт без скоупа
+  const ready = !loading;
   const [years, setYears] = useState<number[]>([dayjs().year()]);
   const [year, setYear] = useState<number>(dayjs().year());
   const [range, setRange] = useState<[Dayjs, Dayjs]>([
@@ -84,8 +86,9 @@ export default function ReportsPage() {
   const periodLabel = `${range[0].format("DD.MM.YYYY")}—${range[1].format("DD.MM.YYYY")}`;
 
   useEffect(() => {
+    if (!ready) return;
     getReportYears(programId).then(setYears).catch(() => {});
-  }, [programId]);
+  }, [ready, programId]);
 
   function onYearChange(y: number) {
     setYear(y);
@@ -134,8 +137,8 @@ export default function ReportsPage() {
 
       <Tabs
         items={[
-          { key: "summary", label: "Сводка", children: <DrillDown from={from} to={to} periodLabel={periodLabel} programId={programId} /> },
-          { key: "journal", label: "Журнал", children: <Journal from={from} to={to} periodLabel={periodLabel} programId={programId} /> },
+          { key: "summary", label: "Сводка", children: <DrillDown from={from} to={to} periodLabel={periodLabel} programId={programId} ready={ready} /> },
+          { key: "journal", label: "Журнал", children: <Journal from={from} to={to} periodLabel={periodLabel} programId={programId} ready={ready} /> },
         ]}
       />
     </div>
@@ -164,7 +167,7 @@ function MonthlyChart({ summary }: { summary: Summary }) {
 }
 
 /** Проваливающийся отчёт: Трейсеры → Отделы → Сотрудники. */
-function DrillDown({ from, to, periodLabel, programId }: { from: string; to: string; periodLabel: string; programId?: number }) {
+function DrillDown({ from, to, periodLabel, programId, ready }: { from: string; to: string; periodLabel: string; programId?: number; ready: boolean }) {
   const { message } = App.useApp();
   const [overall, setOverall] = useState<Summary | null>(null);
   const [tracer, setTracer] = useState<Summary | null>(null);
@@ -174,6 +177,7 @@ function DrillDown({ from, to, periodLabel, programId }: { from: string; to: str
 
   // уровень 0 — список трейсеров
   useEffect(() => {
+    if (!ready) return;
     setLoading(true);
     getSummary({ from, to, programId })
       .then(setOverall)
@@ -181,7 +185,7 @@ function DrillDown({ from, to, periodLabel, programId }: { from: string; to: str
       .finally(() => setLoading(false));
     setSelQ(null);
     setSelDept(null);
-  }, [from, to, programId, message]);
+  }, [ready, from, to, programId, message]);
 
   // уровень 1/2 — по выбранному трейсеру
   useEffect(() => {
@@ -422,6 +426,7 @@ function Journal({
   questionnaireId,
   periodLabel,
   programId,
+  ready,
 }: {
   from: string;
   to: string;
@@ -429,6 +434,7 @@ function Journal({
   questionnaireId?: number;
   periodLabel: string;
   programId?: number;
+  ready: boolean;
 }) {
   const { message } = App.useApp();
   const router = useRouter();
@@ -442,8 +448,9 @@ function Journal({
   const [questionnaires, setQuestionnaires] = useState<Questionnaire[]>([]);
 
   useEffect(() => {
+    if (!ready) return;
     listQuestionnaires(programId).then(setQuestionnaires).catch(() => {});
-  }, [programId]);
+  }, [ready, programId]);
 
   async function onDelete(r: JournalRow) {
     try {
@@ -456,6 +463,7 @@ function Journal({
   }
 
   const load = useCallback(() => {
+    if (!ready) return;
     setLoading(true);
     getJournal({ from, to, departmentId, questionnaireId: qId, auditor, programId, page, pageSize: 20 })
       .then((res) => {
@@ -464,7 +472,7 @@ function Journal({
       })
       .catch(() => message.error("Не удалось загрузить журнал"))
       .finally(() => setLoading(false));
-  }, [from, to, departmentId, qId, auditor, programId, page, message]);
+  }, [ready, from, to, departmentId, qId, auditor, programId, page, message]);
 
   useEffect(() => {
     load();
