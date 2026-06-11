@@ -457,25 +457,26 @@ export default function TracerFormPage() {
         </Space>
 
         <Space wrap size="large" style={{ marginTop: 16, width: "100%" }}>
-          <div>
-            <Text strong>
-              Отдел {globalSubjects ? null : <Text type="danger">*</Text>}
-            </Text>
-            <br />
-            <Select
-              showSearch
-              allowClear={globalSubjects}
-              optionFilterProp="label"
-              placeholder={globalSubjects ? "Не требуется (любые отделы)" : "Выберите отдел"}
-              style={{ width: 340, marginTop: 4 }}
-              value={departmentId}
-              onChange={changeDepartment}
-              options={departments.map((d) => ({
-                value: d.id,
-                label: d.organization ? `${d.name} · ${d.organization.name}` : d.name,
-              }))}
-            />
-          </div>
+          {!globalSubjects && (
+            <div>
+              <Text strong>
+                Отдел <Text type="danger">*</Text>
+              </Text>
+              <br />
+              <Select
+                showSearch
+                optionFilterProp="label"
+                placeholder="Выберите отдел"
+                style={{ width: 340, marginTop: 4 }}
+                value={departmentId}
+                onChange={changeDepartment}
+                options={departments.map((d) => ({
+                  value: d.id,
+                  label: d.organization ? `${d.name} · ${d.organization.name}` : d.name,
+                }))}
+              />
+            </div>
+          )}
           <div>
             <Text strong>Дата</Text>
             <br />
@@ -676,8 +677,11 @@ export default function TracerFormPage() {
           </Button>
         </Space>
         <Paragraph type="secondary" style={{ marginTop: 12, marginBottom: 0, fontSize: 12 }}>
-          Результат считается на сервере: Соответствует = 1, Частично = 0.5, Не соответствует = 0;
-          % = сумма ÷ число критериев.
+          Результат считается на сервере:{" "}
+          {questionnaire.scale === "binary"
+            ? "Да = 1, Нет = 0"
+            : "Соответствует = 1, Частично = 0.5, Не соответствует = 0"}
+          ; % = сумма ÷ число оценочных критериев.
         </Paragraph>
       </Card>
     </div>
