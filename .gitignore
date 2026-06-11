@@ -45,3 +45,6 @@ backend/public/uploads/*
 test-results/
 playwright-report/
 .codex-qa.spec.js
+
+# QA screenshots (local)
+qa-tmp/

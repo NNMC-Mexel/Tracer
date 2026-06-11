@@ -277,6 +277,7 @@ function LevelTracers({ summary, onPick }: { summary: Summary; onPick: (q: { id:
           rowKey="name"
           size="middle"
           pagination={false}
+          scroll={{ x: "max-content" }}
           dataSource={summary.byQuestionnaire}
           onRow={(r) => ({
             style: { cursor: r.id ? "pointer" : "default" },
@@ -329,6 +330,7 @@ function LevelDepartments({
           rowKey="name"
           size="middle"
           pagination={false}
+          scroll={{ x: "max-content" }}
           dataSource={summary.byDepartment}
           onRow={(r) => ({ style: { cursor: "pointer" }, onClick: () => onPick(r.name) })}
           columns={[
@@ -365,6 +367,7 @@ function LevelDepartments({
             rowKey="category"
             size="small"
             pagination={false}
+            scroll={{ x: "max-content" }}
             dataSource={summary.byCategory}
             columns={[
               { title: "Категория", dataIndex: "category", key: "category", render: (c: string) => CATEGORY_LABEL[c] ?? c },
@@ -398,6 +401,7 @@ function LevelEmployees({ summary, department }: { summary: Summary; department:
           rowKey={(r) => `${r.employeeId}-${r.scorePercent}`}
           size="middle"
           pagination={{ pageSize: 50, showSizeChanger: true }}
+          scroll={{ x: "max-content" }}
           dataSource={people}
           locale={{ emptyText: "Нет проверенных сотрудников" }}
           columns={[
@@ -569,6 +573,7 @@ function Journal({
         dataSource={rows}
         loading={loading}
         size="middle"
+        scroll={{ x: "max-content" }}
         onRow={(r) => ({ onClick: () => openDetail(r.documentId), style: { cursor: "pointer" } })}
         pagination={{
           current: page,

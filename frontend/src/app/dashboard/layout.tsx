@@ -81,8 +81,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         open={isMobile && drawerOpen}
         onClose={() => setDrawerOpen(false)}
         placement="left"
-        width={240}
-        styles={{ body: { padding: 0 } }}
+        styles={{ wrapper: { width: 260 }, body: { padding: 0 } }}
         title="Трейсер чистоты"
       >
         {menu}
