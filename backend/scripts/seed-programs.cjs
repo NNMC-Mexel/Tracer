@@ -191,6 +191,20 @@ async function main() {
     }
     console.log(`[prog] Опросников привязано к «Эпидемиология»: ${assigned}`);
 
+    // (опц.) привязать всех пользователей без направления к «Эпидемиология»
+    if (process.env.ASSIGN_ALL_EPID === "1") {
+      const U = "plugin::users-permissions.user";
+      const users = await app.db.query(U).findMany({ populate: { program: true } });
+      let n = 0;
+      for (const u of users) {
+        if (!u.program) {
+          await app.db.query(U).update({ where: { id: u.id }, data: { program: progId.epidemiology } });
+          n++;
+        }
+      }
+      console.log(`[prog] Пользователей привязано к «Эпидемиология»: ${n}`);
+    }
+
     // 3. пересоздаём опросники качества
     for (const slug of qualitySlugs) {
       const ex = await app.db.query(Q).findOne({ where: { slug } });
