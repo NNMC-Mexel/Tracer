@@ -47,6 +47,9 @@
     "criteriaSnapshot": {
       "type": "json"
     },
+    "inputs": {
+      "type": "json"
+    },
     "participants": {
       "type": "json"
     },

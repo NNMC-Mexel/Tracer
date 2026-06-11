@@ -95,7 +95,8 @@ export interface JournalRow {
   note?: string;
   scorePercent: number;
   complianceLevel: "high" | "medium" | "low";
-  criteriaSnapshot?: { id: number; text: string; order: number }[];
+  inputs?: Record<string, string>;
+  criteriaSnapshot?: { id: number; text: string; order: number; kind?: string }[];
   participants?: { employeeId?: number; fullName?: string; position?: string }[];
   department?: { id: number; name: string } | null;
   questionnaire?: { id: number; name: string; slug: string; subjectType: string; scale?: string; allowNa?: boolean } | null;

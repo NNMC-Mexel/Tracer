@@ -16,6 +16,12 @@
       "type": "text",
       "required": true
     },
+    "kind": {
+      "type": "enumeration",
+      "enum": ["scored", "input"],
+      "required": true,
+      "default": "scored"
+    },
     "order": {
       "type": "integer",
       "default": 0

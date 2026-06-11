@@ -37,6 +37,10 @@
       "type": "boolean",
       "default": false
     },
+    "globalSubjects": {
+      "type": "boolean",
+      "default": false
+    },
     "program": {
       "type": "relation",
       "relation": "manyToOne",

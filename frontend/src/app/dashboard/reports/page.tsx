@@ -585,7 +585,9 @@ function Journal({
             none: { s: "✗", c: "#ff4d4f" },
             na: { s: "Н/П", c: "#8c8c8c" },
           };
-          const crit = (detail.criteriaSnapshot ?? []).slice().sort((a, b) => a.order - b.order);
+          const allCrit = (detail.criteriaSnapshot ?? []).slice().sort((a, b) => a.order - b.order);
+          const crit = allCrit.filter((c) => c.kind !== "input");
+          const inputCrit = allCrit.filter((c) => c.kind === "input");
           const isEmp = detail.questionnaire?.subjectType === "employee";
           const isBin = detail.questionnaire?.scale === "binary";
           const word = (v?: string) =>
@@ -668,6 +670,17 @@ function Journal({
                     { title: "Примечание", key: "note", render: (_, c) => detail.subjects?.[0]?.notes?.[c.id] ?? "" },
                   ]}
                 />
+              )}
+              {inputCrit.length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  <Title level={5}>Поля</Title>
+                  {inputCrit.map((c) => (
+                    <div key={c.id} style={{ marginBottom: 4 }}>
+                      <Text type="secondary">{c.text}:</Text>{" "}
+                      {detail.inputs?.[c.id] || "—"}
+                    </div>
+                  ))}
+                </div>
               )}
               <div style={{ marginTop: 6, fontSize: 12, color: "#888" }}>
                 {isBin ? "✓ да · ✗ нет" : "✓ соответствует · ± частично · ✗ не соответствует"}

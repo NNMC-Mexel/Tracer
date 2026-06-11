@@ -44,6 +44,7 @@ export default factories.createCoreController(TS, ({ strapi }) => ({
       note,
       subjects,
       participants,
+      inputs,
     } = (body ?? {}) as {
       sessionId?: number;
       questionnaireId?: number;
@@ -54,6 +55,7 @@ export default factories.createCoreController(TS, ({ strapi }) => ({
       note?: string;
       subjects?: SubjectInput[];
       participants?: unknown[];
+      inputs?: Record<string, string>;
     };
 
     if (!questionnaireId) return ctx.badRequest("questionnaireId обязателен");
@@ -68,13 +70,19 @@ export default factories.createCoreController(TS, ({ strapi }) => ({
     const criteria = [...(questionnaire.criteria ?? [])].sort(
       (a, b) => (a.order ?? 0) - (b.order ?? 0),
     );
-    const criteriaCount = criteria.length;
-    const snapshot = criteria.map((c) => ({ id: c.id, text: c.text, order: c.order }));
+    // оценочные критерии (kind=input — поля-вписки, в расчёт не входят)
+    const scored = criteria.filter((c) => c.kind !== "input");
+    const snapshot = criteria.map((c) => ({
+      id: c.id,
+      text: c.text,
+      order: c.order,
+      kind: c.kind ?? "scored",
+    }));
 
     const computed = subjects.map((s) => {
       let sum = 0;
       let applicable = 0;
-      for (const c of criteria) {
+      for (const c of scored) {
         const v = (s.answers?.[c.id] ?? s.answers?.[String(c.id)]) as string;
         if (v === "na") continue; // «не применимо» — вне расчёта
         applicable++;
@@ -95,6 +103,7 @@ export default factories.createCoreController(TS, ({ strapi }) => ({
       time: time ?? null,
       note: note ?? null,
       criteriaSnapshot: snapshot,
+      inputs: inputs && typeof inputs === "object" ? inputs : {},
       participants: Array.isArray(participants) ? participants : [],
       scorePercent: sessionPct,
       complianceLevel: complianceLevel(sessionPct),

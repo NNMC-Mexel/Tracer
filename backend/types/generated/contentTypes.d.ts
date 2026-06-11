@@ -455,6 +455,9 @@ export interface ApiCriterionCriterion extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    kind: Schema.Attribute.Enumeration<['scored', 'input']> &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'scored'>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -645,6 +648,8 @@ export interface ApiQuestionnaireQuestionnaire
       'api::criterion.criterion'
     >;
     description: Schema.Attribute.Text;
+    globalSubjects: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<false>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -698,6 +703,7 @@ export interface ApiTracerSessionTracerSession
       'manyToOne',
       'api::department.department'
     >;
+    inputs: Schema.Attribute.JSON;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',

@@ -11,9 +11,13 @@ export const ANSWER_WEIGHT: Record<string, number> = {
   none: 0,
 };
 
+/** scored — оценочный (Да/Нет, в %); input — поле-вписка (текст/цифры, в % не входит). */
+export type CriterionKind = "scored" | "input";
+
 export interface Criterion {
   id: number;
   text: string;
+  kind?: CriterionKind;
   order: number;
 }
 
@@ -35,6 +39,8 @@ export interface Questionnaire {
   subjectType: SubjectType;
   scale: Scale;
   allowNa?: boolean;
+  /** Глобальный список сотрудников (без привязки к отделу) — напр. тайм-аут. */
+  globalSubjects?: boolean;
   program?: Program | null;
   description?: string;
   order: number;
@@ -77,6 +83,8 @@ export interface SubmitTracerInput {
   date?: string;
   time?: string;
   note?: string;
+  /** Ответы на поля-вписки (kind=input), один раз на трейсер: { критерийId: текст }. */
+  inputs?: Record<number, string>;
   subjects: SubjectPayload[];
   participants?: ParticipantPayload[];
 }

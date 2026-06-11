@@ -79,6 +79,8 @@ export default function TracerFormPage() {
   const [checklist, setChecklist] = useState<Record<number, AnswerValue>>({});
   const [critNotes, setCritNotes] = useState<Record<number, string>>({});
   const [participants, setParticipants] = useState<Employee[]>([]);
+  // поля-вписки (kind=input) — один раз на трейсер
+  const [inputs, setInputs] = useState<Record<number, string>>({});
   // по сотрудникам: строки и их ответы
   const [rows, setRows] = useState<Employee[]>([]);
   const [empAnswers, setEmpAnswers] = useState<Record<number, Record<number, AnswerValue>>>({});
@@ -135,6 +137,7 @@ export default function TracerFormPage() {
         if (d.department?.id) setDepartmentId(d.department.id);
         if (d.date) setDate(dayjs(d.date));
         setNote(d.note ?? "");
+        setInputs(toStrMap(d.inputs));
         if (questionnaire.subjectType === "department") {
           const subj = d.subjects?.[0];
           setChecklist(toNumMap(subj?.answers));
@@ -173,7 +176,16 @@ export default function TracerFormPage() {
 
   const selectedDept = departments.find((d) => d.id === departmentId);
   const isEmployee = questionnaire?.subjectType === "employee";
-  const criteriaCount = questionnaire?.criteria.length ?? 0;
+  const globalSubjects = !!questionnaire?.globalSubjects;
+  const scoredCriteria = useMemo(
+    () => (questionnaire?.criteria ?? []).filter((c) => c.kind !== "input"),
+    [questionnaire],
+  );
+  const inputCriteria = useMemo(
+    () => (questionnaire?.criteria ?? []).filter((c) => c.kind === "input"),
+    [questionnaire],
+  );
+  const criteriaCount = scoredCriteria.length;
 
   // смена отдела очищает выбранных людей (коллектив теперь другой)
   function changeDepartment(id: number | undefined) {
@@ -213,12 +225,13 @@ export default function TracerFormPage() {
 
   async function onSave() {
     if (!questionnaire) return;
-    if (!departmentId) {
+    if (!departmentId && !globalSubjects) {
       message.warning("Сначала выберите отдел");
       return;
     }
+    // проверяем только оценочные критерии (поля-вписки заполнять необязательно)
     const allAnswered = (ans: Record<number, AnswerValue>) =>
-      questionnaire.criteria.every((c) => ans?.[c.id]);
+      scoredCriteria.every((c) => ans?.[c.id]);
 
     let subjects: SubjectPayload[];
     if (!isEmployee) {
@@ -228,7 +241,7 @@ export default function TracerFormPage() {
       }
       subjects = [
         {
-          label: selectedDept?.name,
+          label: selectedDept?.name ?? questionnaire.name,
           department: selectedDept?.name,
           answers: checklist,
           notes: critNotes,
@@ -263,6 +276,7 @@ export default function TracerFormPage() {
         date: date.format("YYYY-MM-DD"),
         time: dayjs().format("HH:mm"),
         note: note || undefined,
+        inputs: Object.keys(inputs).length ? inputs : undefined,
         subjects,
         participants: !isEmployee
           ? participants.map((e) => ({
@@ -355,12 +369,12 @@ export default function TracerFormPage() {
       fixed: "left",
       width: 240,
       onCell: (e) => {
-        const done = questionnaire.criteria.every((c) => empAnswers[e.id]?.[c.id]);
+        const done = scoredCriteria.every((c) => empAnswers[e.id]?.[c.id]);
         return { style: done ? { background: "#f6ffed" } : { background: "#fffbe6" } };
       },
       render: (_, e) => {
-        const answered = questionnaire.criteria.filter((c) => empAnswers[e.id]?.[c.id]).length;
-        const total = questionnaire.criteria.length;
+        const answered = scoredCriteria.filter((c) => empAnswers[e.id]?.[c.id]).length;
+        const total = scoredCriteria.length;
         const done = answered === total;
         return (
           <div>
@@ -380,7 +394,7 @@ export default function TracerFormPage() {
         );
       },
     },
-    ...questionnaire.criteria.map((c) => ({
+    ...scoredCriteria.map((c) => ({
       title: c.text,
       key: `c${c.id}`,
       width: 160,
@@ -440,13 +454,14 @@ export default function TracerFormPage() {
         <Space wrap size="large" style={{ marginTop: 16, width: "100%" }}>
           <div>
             <Text strong>
-              Отдел <Text type="danger">*</Text>
+              Отдел {globalSubjects ? null : <Text type="danger">*</Text>}
             </Text>
             <br />
             <Select
               showSearch
+              allowClear={globalSubjects}
               optionFilterProp="label"
-              placeholder="Выберите отдел"
+              placeholder={globalSubjects ? "Не требуется (любые отделы)" : "Выберите отдел"}
               style={{ width: 340, marginTop: 4 }}
               value={departmentId}
               onChange={changeDepartment}
@@ -475,6 +490,25 @@ export default function TracerFormPage() {
           </div>
         </Space>
       </Card>
+
+      {inputCriteria.length > 0 && (
+        <Card title="Поля для заполнения (вписываются вручную, в % не входят)">
+          <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
+            {inputCriteria.map((c) => (
+              <div key={c.id}>
+                <Text>{c.text}</Text>
+                <Input.TextArea
+                  autoSize={{ minRows: 1, maxRows: 3 }}
+                  style={{ marginTop: 4 }}
+                  placeholder="Впишите данные"
+                  value={inputs[c.id] ?? ""}
+                  onChange={(e) => setInputs((p) => ({ ...p, [c.id]: e.target.value }))}
+                />
+              </div>
+            ))}
+          </Space>
+        </Card>
+      )}
 
       {isEmployee ? (
         <Card title={<Space>Сотрудники <Tag color="blue">{rows.length}</Tag></Space>}>
@@ -506,7 +540,7 @@ export default function TracerFormPage() {
         <>
           <Card title="Критерии">
             <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
-              {questionnaire.criteria.map((c, idx) => (
+              {scoredCriteria.map((c, idx) => (
                 <div
                   key={c.id}
                   style={{ borderBottom: "1px solid #f0f0f0", paddingBottom: 12 }}
@@ -546,15 +580,16 @@ export default function TracerFormPage() {
             <Paragraph type="secondary" style={{ marginTop: 0 }}>
               Необязательно. Чек-лист оценивает отдел (один %), но можно отметить, кого проверяли.
             </Paragraph>
-            {!departmentId ? (
+            {!departmentId && !globalSubjects ? (
               <Alert type="info" showIcon title="Выберите отдел, чтобы добавить сотрудников." />
             ) : (
               <>
                 <div style={{ maxWidth: 560, marginBottom: 12 }}>
                   <EmployeePicker
-                    departmentId={departmentId}
+                    departmentId={globalSubjects ? undefined : departmentId}
                     onSelect={addParticipant}
                     excludeIds={participants.map((e) => e.id)}
+                    placeholder={globalSubjects ? "Найдите сотрудника по ФИО (любой отдел)" : undefined}
                   />
                 </div>
                 <Space wrap>

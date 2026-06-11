@@ -34,7 +34,9 @@ export default function TracerPrintPage() {
   if (notFound) return <Result status="404" title="Трейсер не найден" />;
   if (!data) return <Spin style={{ margin: 40 }} />;
 
-  const criteria = (data.criteriaSnapshot ?? []).slice().sort((a, b) => a.order - b.order);
+  const allCriteria = (data.criteriaSnapshot ?? []).slice().sort((a, b) => a.order - b.order);
+  const criteria = allCriteria.filter((c) => c.kind !== "input");
+  const inputCriteria = allCriteria.filter((c) => c.kind === "input");
   const isEmployee = data.questionnaire?.subjectType === "employee";
   const isBinary = data.questionnaire?.scale === "binary";
   const subjects = data.subjects ?? [];
@@ -152,9 +154,28 @@ export default function TracerPrintPage() {
         </table>
       )}
 
-      {!isEmployee && (data.participants?.length ?? 0) > 0 && (
+      {inputCriteria.length > 0 && (
+        <table className="doc" style={{ marginTop: 14 }}>
+          <thead>
+            <tr>
+              <th>Поле</th>
+              <th style={{ width: 280 }}>Значение</th>
+            </tr>
+          </thead>
+          <tbody>
+            {inputCriteria.map((c) => (
+              <tr key={c.id}>
+                <td>{c.text}</td>
+                <td>{data.inputs?.[c.id] || ""}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {(data.participants?.length ?? 0) > 0 && (
         <div className="footer">
-          <b>Проверенные сотрудники:</b> {data.participants!.map((p) => p.fullName).join(", ")}
+          <b>Сотрудники:</b> {data.participants!.map((p) => p.fullName).join(", ")}
         </div>
       )}
     </div>
