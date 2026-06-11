@@ -7,6 +7,7 @@ import { PrinterOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { useAuth } from "@/lib/useAuth";
 import { getSessionDetail, type JournalRow } from "@/lib/reports";
+import { fillBlanks } from "@/lib/tracers";
 
 const ANS_SYMBOL: Record<string, string> = { full: "+", partial: "±", none: "−", na: "Н/П" };
 function answerWord(v: string | undefined, binary: boolean): string {
@@ -158,15 +159,13 @@ export default function TracerPrintPage() {
         <table className="doc" style={{ marginTop: 14 }}>
           <thead>
             <tr>
-              <th>Поле</th>
-              <th style={{ width: 280 }}>Значение</th>
+              <th>Заполненные поля</th>
             </tr>
           </thead>
           <tbody>
             {inputCriteria.map((c) => (
               <tr key={c.id}>
-                <td>{c.text}</td>
-                <td>{data.inputs?.[c.id] || ""}</td>
+                <td>{fillBlanks(c.text, data.inputs?.[c.id])}</td>
               </tr>
             ))}
           </tbody>

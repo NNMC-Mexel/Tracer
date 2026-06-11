@@ -31,6 +31,7 @@ import {
   submitTracer,
   ANSWER_WEIGHT,
   LEVEL_LABEL,
+  blankParts,
   type Questionnaire,
   type AnswerValue,
   type SubjectPayload,
@@ -79,8 +80,8 @@ export default function TracerFormPage() {
   const [checklist, setChecklist] = useState<Record<number, AnswerValue>>({});
   const [critNotes, setCritNotes] = useState<Record<number, string>>({});
   const [participants, setParticipants] = useState<Employee[]>([]);
-  // поля-вписки (kind=input) — один раз на трейсер
-  const [inputs, setInputs] = useState<Record<number, string>>({});
+  // поля-вписки (kind=input) — значения прочерков по критериям, один раз на трейсер
+  const [inputs, setInputs] = useState<Record<number, string[]>>({});
   // по сотрудникам: строки и их ответы
   const [rows, setRows] = useState<Employee[]>([]);
   const [empAnswers, setEmpAnswers] = useState<Record<number, Record<number, AnswerValue>>>({});
@@ -137,7 +138,11 @@ export default function TracerFormPage() {
         if (d.department?.id) setDepartmentId(d.department.id);
         if (d.date) setDate(dayjs(d.date));
         setNote(d.note ?? "");
-        setInputs(toStrMap(d.inputs));
+        const inp: Record<number, string[]> = {};
+        if (d.inputs)
+          for (const [k, v] of Object.entries(d.inputs))
+            inp[Number(k)] = Array.isArray(v) ? v : [String(v)];
+        setInputs(inp);
         if (questionnaire.subjectType === "department") {
           const subj = d.subjects?.[0];
           setChecklist(toNumMap(subj?.answers));
@@ -494,18 +499,53 @@ export default function TracerFormPage() {
       {inputCriteria.length > 0 && (
         <Card title="Поля для заполнения (вписываются вручную, в % не входят)">
           <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
-            {inputCriteria.map((c) => (
-              <div key={c.id}>
-                <Text>{c.text}</Text>
-                <Input.TextArea
-                  autoSize={{ minRows: 1, maxRows: 3 }}
-                  style={{ marginTop: 4 }}
-                  placeholder="Впишите данные"
-                  value={inputs[c.id] ?? ""}
-                  onChange={(e) => setInputs((p) => ({ ...p, [c.id]: e.target.value }))}
-                />
-              </div>
-            ))}
+            {inputCriteria.map((c) => {
+              const parts = blankParts(c.text);
+              const vals = inputs[c.id] ?? [];
+              const setVal = (i: number, v: string) =>
+                setInputs((p) => {
+                  const arr = [...(p[c.id] ?? [])];
+                  arr[i] = v;
+                  return { ...p, [c.id]: arr };
+                });
+              if (parts.length === 1) {
+                // без прочерков — подпись + одно поле
+                return (
+                  <div key={c.id}>
+                    <Text>{c.text}</Text>
+                    <Input
+                      size="small"
+                      style={{ marginTop: 4, maxWidth: 320 }}
+                      placeholder="Впишите"
+                      value={vals[0] ?? ""}
+                      onChange={(e) => setVal(0, e.target.value)}
+                    />
+                  </div>
+                );
+              }
+              // прочерки → отдельное поле на каждый
+              return (
+                <div
+                  key={c.id}
+                  style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 4, lineHeight: 2.4 }}
+                >
+                  {parts.map((seg, i) => (
+                    <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      <span>{seg}</span>
+                      {i < parts.length - 1 && (
+                        <Input
+                          size="small"
+                          inputMode="numeric"
+                          style={{ width: 64, textAlign: "center" }}
+                          value={vals[i] ?? ""}
+                          onChange={(e) => setVal(i, e.target.value)}
+                        />
+                      )}
+                    </span>
+                  ))}
+                </div>
+              );
+            })}
           </Space>
         </Card>
       )}

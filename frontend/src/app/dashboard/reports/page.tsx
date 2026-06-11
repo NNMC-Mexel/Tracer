@@ -63,7 +63,7 @@ import {
   exportSummaryPdf,
   exportJournalExcel,
 } from "@/lib/reports-export";
-import { LEVEL_LABEL, listQuestionnaires, type Questionnaire } from "@/lib/tracers";
+import { LEVEL_LABEL, listQuestionnaires, fillBlanks, type Questionnaire } from "@/lib/tracers";
 import { useAuth } from "@/lib/useAuth";
 
 const { Title, Text } = Typography;
@@ -676,8 +676,7 @@ function Journal({
                   <Title level={5}>Поля</Title>
                   {inputCrit.map((c) => (
                     <div key={c.id} style={{ marginBottom: 4 }}>
-                      <Text type="secondary">{c.text}:</Text>{" "}
-                      {detail.inputs?.[c.id] || "—"}
+                      {fillBlanks(c.text, detail.inputs?.[c.id])}
                     </div>
                   ))}
                 </div>

@@ -83,10 +83,24 @@ export interface SubmitTracerInput {
   date?: string;
   time?: string;
   note?: string;
-  /** Ответы на поля-вписки (kind=input), один раз на трейсер: { критерийId: текст }. */
-  inputs?: Record<number, string>;
+  /** Поля-вписки (kind=input): значения прочерков по каждому критерию: { критерийId: [v1, v2, ...] }. */
+  inputs?: Record<number, string[]>;
   subjects: SubjectPayload[];
   participants?: ParticipantPayload[];
+}
+
+/** Разбивает текст критерия по прочеркам (___). N частей → N−1 прочерков. */
+export function blankParts(text: string): string[] {
+  return text.split(/_{2,}/);
+}
+
+/** Подставляет значения в прочерки для показа: «Из 10 проверенных … СПОР 7». */
+export function fillBlanks(text: string, values?: string[]): string {
+  const parts = blankParts(text);
+  if (parts.length === 1) return values?.[0] ? `${text.trim()}: ${values[0]}` : text;
+  return parts
+    .map((seg, i) => seg + (i < parts.length - 1 ? (values?.[i] ?? "______") : ""))
+    .join("");
 }
 
 export interface TracerSubjectResult {
