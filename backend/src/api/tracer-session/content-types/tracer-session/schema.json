@@ -47,6 +47,12 @@
     "criteriaSnapshot": {
       "type": "json"
     },
+    "photo": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": ["images"]
+    },
     "inputs": {
       "type": "json"
     },

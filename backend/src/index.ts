@@ -56,6 +56,8 @@ export default {
       // Отчёты
       "api::report.report.years",
       "api::report.report.summary",
+      // Загрузка фото проверки на месте
+      "plugin::upload.content-api.upload",
     ]);
   },
 };

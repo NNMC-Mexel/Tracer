@@ -45,6 +45,7 @@ export default factories.createCoreController(TS, ({ strapi }) => ({
       subjects,
       participants,
       inputs,
+      photoId,
     } = (body ?? {}) as {
       sessionId?: number;
       questionnaireId?: number;
@@ -56,6 +57,7 @@ export default factories.createCoreController(TS, ({ strapi }) => ({
       subjects?: SubjectInput[];
       participants?: unknown[];
       inputs?: Record<string, string>;
+      photoId?: number;
     };
 
     if (!questionnaireId) return ctx.badRequest("questionnaireId обязателен");
@@ -104,6 +106,7 @@ export default factories.createCoreController(TS, ({ strapi }) => ({
       note: note ?? null,
       criteriaSnapshot: snapshot,
       inputs: inputs && typeof inputs === "object" ? inputs : {},
+      ...(photoId ? { photo: photoId } : {}),
       participants: Array.isArray(participants) ? participants : [],
       scorePercent: sessionPct,
       complianceLevel: complianceLevel(sessionPct),

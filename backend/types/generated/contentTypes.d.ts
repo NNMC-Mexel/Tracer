@@ -716,6 +716,7 @@ export interface ApiTracerSessionTracerSession
       'api::organization.organization'
     >;
     participants: Schema.Attribute.JSON;
+    photo: Schema.Attribute.Media<'images'>;
     publishedAt: Schema.Attribute.DateTime;
     questionnaire: Schema.Attribute.Relation<
       'manyToOne',

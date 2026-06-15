@@ -24,8 +24,10 @@ import dayjs, { type Dayjs } from "dayjs";
 import { useAuth } from "@/lib/useAuth";
 import { getSessionDetail } from "@/lib/reports";
 import { listDepartments, type Department, type Employee } from "@/lib/employees";
+import { uploadImage, STRAPI_URL } from "@/lib/strapi";
 import EmployeePicker from "@/components/EmployeePicker";
 import AnswerSelect from "@/components/AnswerSelect";
+import PhotoCapture from "@/components/PhotoCapture";
 import {
   listQuestionnaires,
   submitTracer,
@@ -82,6 +84,9 @@ export default function TracerFormPage() {
   const [participants, setParticipants] = useState<Employee[]>([]);
   // поля-вписки (kind=input) — значения прочерков по критериям, один раз на трейсер
   const [inputs, setInputs] = useState<Record<number, string[]>>({});
+  // фото проверки на месте (лайв-камера)
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [existingPhotoUrl, setExistingPhotoUrl] = useState<string | undefined>();
   // по сотрудникам: строки и их ответы
   const [rows, setRows] = useState<Employee[]>([]);
   const [empAnswers, setEmpAnswers] = useState<Record<number, Record<number, AnswerValue>>>({});
@@ -143,6 +148,7 @@ export default function TracerFormPage() {
           for (const [k, v] of Object.entries(d.inputs))
             inp[Number(k)] = Array.isArray(v) ? v : [String(v)];
         setInputs(inp);
+        if (d.photo?.url) setExistingPhotoUrl(STRAPI_URL + d.photo.url);
         if (questionnaire.subjectType === "department") {
           const subj = d.subjects?.[0];
           setChecklist(toNumMap(subj?.answers));
@@ -271,8 +277,24 @@ export default function TracerFormPage() {
       }));
     }
 
+    // фото проверки на месте — обязательно для нового трейсера
+    if (!editSessionId && !photoFile) {
+      message.warning("Сделайте фото проверки на месте");
+      return;
+    }
+
     setSaving(true);
     try {
+      let photoId: number | undefined;
+      if (photoFile) {
+        try {
+          photoId = (await uploadImage(photoFile)).id;
+        } catch {
+          message.error("Не удалось загрузить фото");
+          setSaving(false);
+          return;
+        }
+      }
       const res = await submitTracer({
         sessionId: editSessionId,
         questionnaireId: questionnaire.id,
@@ -282,6 +304,7 @@ export default function TracerFormPage() {
         time: dayjs().format("HH:mm"),
         note: note || undefined,
         inputs: Object.keys(inputs).length ? inputs : undefined,
+        photoId,
         subjects,
         participants: !isEmployee
           ? participants.map((e) => ({
@@ -495,6 +518,10 @@ export default function TracerFormPage() {
             <Input style={{ width: 200, marginTop: 4 }} value={user?.username ?? ""} disabled />
           </div>
         </Space>
+      </Card>
+
+      <Card title="Фото проверки на месте (обязательно)">
+        <PhotoCapture file={photoFile} onChange={setPhotoFile} existingUrl={existingPhotoUrl} />
       </Card>
 
       {inputCriteria.length > 0 && (

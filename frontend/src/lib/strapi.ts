@@ -82,6 +82,24 @@ export async function strapiFetch<T>(
   return data as T;
 }
 
+/** Загрузка изображения (multipart) в медиатеку Strapi. Возвращает id и url файла. */
+export async function uploadImage(file: File | Blob): Promise<{ id: number; url: string }> {
+  const token = getToken();
+  const fd = new FormData();
+  fd.append("files", file);
+  const res = await fetch(`${STRAPI_URL}/api/upload`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: fd,
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new StrapiError(data?.error?.message ?? "Не удалось загрузить фото", res.status);
+  }
+  const f = Array.isArray(data) ? data[0] : data;
+  return { id: f.id, url: f.url };
+}
+
 // --- Авторизация --------------------------------------------------------------
 
 /** Вход по логину/email и паролю (Strapi Users & Permissions). */
