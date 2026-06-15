@@ -215,6 +215,28 @@ export async function exportSummaryPdf(summary: Summary, meta: Meta) {
     );
   }
 
+  if (summary.answerCounts) {
+    const ac = summary.answerCounts;
+    const tot = ac.full + ac.partial + ac.none + ac.na;
+    if (tot > 0) {
+      const p = (n: number) => `${Math.round((n / tot) * 1000) / 10}%`;
+      const rows: any[][] = [
+        ["Соответствует", String(ac.full), p(ac.full)],
+        ["Частично", String(ac.partial), p(ac.partial)],
+        ["Не соответствует", String(ac.none), p(ac.none)],
+      ];
+      if (ac.na) rows.push(["Неприменим", String(ac.na), p(ac.na)]);
+      content.push(
+        ...block(
+          "Распределение ответов",
+          [th("Оценка"), th("Кол-во", "center"), th("Доля", "center")],
+          ["*", "auto", "auto"],
+          rows.map((r) => [r[0], { text: r[1], alignment: "center" }, { text: r[2], alignment: "center" }]),
+        ),
+      );
+    }
+  }
+
   if (summary.byEmployee.length) {
     content.push(
       ...block(

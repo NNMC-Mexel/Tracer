@@ -13,7 +13,7 @@ process.chdir(path.join(__dirname, ".."));
 const { createStrapi, compileStrapi } = require("@strapi/strapi");
 
 const PROGRAMS = [
-  { slug: "epidemiology", name: "Эпидемиология" },
+  { slug: "epidemiology", name: "Отдел инфекционного контроля" },
   { slug: "quality", name: "Отдел качества" },
 ];
 
@@ -170,6 +170,9 @@ async function main() {
       if (!rec) {
         rec = await app.db.query(PROG).create({ data: { name: p.name, slug: p.slug } });
         console.log(`[prog] Создано направление «${p.name}»`);
+      } else if (rec.name !== p.name) {
+        await app.db.query(PROG).update({ where: { id: rec.id }, data: { name: p.name } });
+        console.log(`[prog] Переименовано «${rec.name}» → «${p.name}»`);
       }
       progId[p.slug] = rec.id;
     }

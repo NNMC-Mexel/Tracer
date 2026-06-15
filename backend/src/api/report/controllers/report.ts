@@ -177,6 +177,15 @@ export default {
       .map(([category, o]) => ({ category, subjects: o.count, avgPercent: avg(o.scores) }))
       .sort((a, b) => CAT_ORDER.indexOf(a.category) - CAT_ORDER.indexOf(b.category));
 
+    // распределение ответов: Соответствует / Частично / Не соответствует / Неприменим
+    const answerCounts = { full: 0, partial: 0, none: 0, na: 0 } as Record<string, number>;
+    for (const sub of subjects) {
+      const ans = (sub.answers || {}) as Record<string, string>;
+      for (const v of Object.values(ans)) {
+        if (answerCounts[v] !== undefined) answerCounts[v]++;
+      }
+    }
+
     // детализация по сотрудникам (только при выбранном опроснике)
     const byEmployee = questionnaireId
       ? subjects
@@ -204,6 +213,7 @@ export default {
         byQuestionnaire,
         byCategory,
         byEmployee,
+        answerCounts,
         monthly,
       },
     };

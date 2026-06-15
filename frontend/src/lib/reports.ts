@@ -41,12 +41,19 @@ export interface MonthStat {
   sessions: number;
   avgPercent: number;
 }
+export interface AnswerCounts {
+  full: number;
+  partial: number;
+  none: number;
+  na: number;
+}
 export interface Summary {
   kpi: SummaryKpi;
   byDepartment: DeptStat[];
   byQuestionnaire: QStat[];
   byCategory: CategoryStat[];
   byEmployee: EmployeeStat[];
+  answerCounts?: AnswerCounts;
   monthly: MonthStat[];
 }
 

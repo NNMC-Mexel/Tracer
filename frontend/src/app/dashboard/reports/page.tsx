@@ -41,11 +41,14 @@ import dayjs, { type Dayjs } from "dayjs";
 import {
   LineChart,
   Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip as RTooltip,
   ResponsiveContainer,
+  Cell,
 } from "recharts";
 import {
   getReportYears,
@@ -166,6 +169,71 @@ function MonthlyChart({ summary }: { summary: Summary }) {
   );
 }
 
+/** Сравнение отделов по среднему % — «динамика между отделами». */
+function DeptCompareChart({ summary }: { summary: Summary }) {
+  const data = (summary.byDepartment ?? [])
+    .slice()
+    .sort((a, b) => b.avgPercent - a.avgPercent)
+    .map((d) => ({ name: d.name.length > 28 ? d.name.slice(0, 26) + "…" : d.name, "Средний %": d.avgPercent }));
+  if (data.length < 2) return null;
+  return (
+    <Card title="Сравнение отделов (средний %)" size="small">
+      <ResponsiveContainer width="100%" height={Math.max(220, data.length * 30)}>
+        <BarChart layout="vertical" data={data} margin={{ left: 8, right: 28 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis type="number" domain={[0, 100]} />
+          <YAxis type="category" dataKey="name" width={180} tick={{ fontSize: 11 }} />
+          <RTooltip />
+          <Bar dataKey="Средний %" radius={[0, 4, 4, 0]}>
+            {data.map((d, i) => {
+              const v = d["Средний %"];
+              return <Cell key={i} fill={v >= 85 ? "#52c41a" : v >= 60 ? "#faad14" : "#ff4d4f"} />;
+            })}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </Card>
+  );
+}
+
+/** Распределение ответов: Соответствует / Частично / Не соответствует / Неприменим. */
+function AnswerBreakdown({ summary }: { summary: Summary }) {
+  const c = summary.answerCounts;
+  if (!c) return null;
+  const total = c.full + c.partial + c.none + c.na;
+  if (total === 0) return null;
+  const pct = (n: number) => Math.round((n / total) * 1000) / 10;
+  const rows = [
+    { label: "Соответствует", n: c.full, color: "#52c41a" },
+    { label: "Частично", n: c.partial, color: "#faad14" },
+    { label: "Не соответствует", n: c.none, color: "#ff4d4f" },
+    ...(c.na ? [{ label: "Неприменим", n: c.na, color: "#8c8c8c" }] : []),
+  ];
+  return (
+    <Card title="Распределение ответов" size="small">
+      <Row gutter={[12, 12]}>
+        {rows.map((r) => (
+          <Col xs={12} md={6} key={r.label}>
+            <div style={{ borderLeft: `3px solid ${r.color}`, paddingLeft: 10 }}>
+              <div style={{ fontSize: 20, fontWeight: 600, color: r.color }}>{r.n}</div>
+              <div style={{ fontSize: 12, color: "#666" }}>
+                {r.label} · {pct(r.n)}%
+              </div>
+            </div>
+          </Col>
+        ))}
+      </Row>
+      <div style={{ display: "flex", height: 10, marginTop: 12, borderRadius: 4, overflow: "hidden" }}>
+        {rows.map((r) =>
+          r.n > 0 ? (
+            <div key={r.label} style={{ width: `${pct(r.n)}%`, background: r.color }} title={`${r.label}: ${pct(r.n)}%`} />
+          ) : null,
+        )}
+      </div>
+    </Card>
+  );
+}
+
 /** Проваливающийся отчёт: Трейсеры → Отделы → Сотрудники. */
 function DrillDown({ from, to, periodLabel, programId, ready }: { from: string; to: string; periodLabel: string; programId?: number; ready: boolean }) {
   const { message } = App.useApp();
@@ -173,7 +241,7 @@ function DrillDown({ from, to, periodLabel, programId, ready }: { from: string; 
   const [tracer, setTracer] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(false);
   const [selQ, setSelQ] = useState<{ id: number; name: string } | null>(null);
-  const [selDept, setSelDept] = useState<string | null>(null);
+  const [selDept, setSelDept] = useState<{ id?: number; name: string } | null>(null);
 
   // уровень 0 — список трейсеров
   useEffect(() => {
@@ -201,20 +269,28 @@ function DrillDown({ from, to, periodLabel, programId, ready }: { from: string; 
     setSelDept(null);
   }, [selQ, from, to, programId, message]);
 
+  // экспорт строго по текущему уровню (общий / трейсер / трейсер+отдел)
+  async function exportData(): Promise<{ s: Summary; title: string } | null> {
+    if (selQ && selDept?.id) {
+      const s = await getSummary({ from, to, questionnaireId: selQ.id, departmentId: selDept.id, programId });
+      return { s, title: `${selQ.name} — ${selDept.name}` };
+    }
+    if (selQ && tracer) return { s: tracer, title: selQ.name };
+    if (overall) return { s: overall, title: "Сводный отчёт по трейсерам" };
+    return null;
+  }
   async function doExcel() {
-    const s = selQ ? tracer : overall;
-    if (!s) return;
     try {
-      await exportSummaryExcel(s, { title: selQ ? selQ.name : "Сводный отчёт по трейсерам", period: periodLabel });
+      const e = await exportData();
+      if (e) await exportSummaryExcel(e.s, { title: e.title, period: periodLabel });
     } catch {
       message.error("Ошибка экспорта в Excel");
     }
   }
   async function doPdf() {
-    const s = selQ ? tracer : overall;
-    if (!s) return;
     try {
-      await exportSummaryPdf(s, { title: selQ ? selQ.name : "Сводный отчёт по трейсерам", period: periodLabel });
+      const e = await exportData();
+      if (e) await exportSummaryPdf(e.s, { title: e.title, period: periodLabel });
     } catch {
       message.error("Ошибка экспорта в PDF");
     }
@@ -223,7 +299,7 @@ function DrillDown({ from, to, periodLabel, programId, ready }: { from: string; 
   const crumbs = [
     { title: <a onClick={() => { setSelQ(null); setSelDept(null); }}>Все трейсеры</a> },
     ...(selQ ? [{ title: selDept ? <a onClick={() => setSelDept(null)}>{selQ.name}</a> : <span>{selQ.name}</span> }] : []),
-    ...(selDept ? [{ title: <span>{selDept}</span> }] : []),
+    ...(selDept ? [{ title: <span>{selDept.name}</span> }] : []),
   ];
 
   const exportButtons = (
@@ -250,7 +326,7 @@ function DrillDown({ from, to, periodLabel, programId, ready }: { from: string; 
         loading || !tracer ? <Spin /> : <LevelDepartments summary={tracer} title={selQ.name} onPick={setSelDept} />
       )}
       {selQ && selDept && tracer && (
-        <LevelEmployees summary={tracer} department={selDept} />
+        <LevelEmployees summary={tracer} department={selDept.name} />
       )}
     </div>
   );
@@ -271,6 +347,10 @@ function LevelTracers({ summary, onPick }: { summary: Summary; onPick: (q: { id:
           <Card><Statistic title="Средний % (по отделам)" value={k.avgPercent} suffix="%" prefix={<PercentageOutlined />} /></Card>
         </Col>
       </Row>
+
+      <AnswerBreakdown summary={summary} />
+      <MonthlyChart summary={summary} />
+      <DeptCompareChart summary={summary} />
 
       <Card title="Трейсеры — нажмите, чтобы провалиться">
         <Table
@@ -309,7 +389,7 @@ function LevelDepartments({
 }: {
   summary: Summary;
   title: string;
-  onPick: (dept: string) => void;
+  onPick: (dept: { id?: number; name: string }) => void;
 }) {
   const k = summary.kpi;
   return (
@@ -323,7 +403,9 @@ function LevelDepartments({
         </Space>
       </Card>
 
+      <AnswerBreakdown summary={summary} />
       <MonthlyChart summary={summary} />
+      <DeptCompareChart summary={summary} />
 
       <Card title="Отделы — нажмите, чтобы увидеть сотрудников">
         <Table
@@ -332,7 +414,7 @@ function LevelDepartments({
           pagination={false}
           scroll={{ x: "max-content" }}
           dataSource={summary.byDepartment}
-          onRow={(r) => ({ style: { cursor: "pointer" }, onClick: () => onPick(r.name) })}
+          onRow={(r) => ({ style: { cursor: "pointer" }, onClick: () => onPick({ id: r.departmentId, name: r.name }) })}
           columns={[
             { title: "Отдел", dataIndex: "name", key: "name" },
             { title: "Проведено", dataIndex: "sessions", key: "sessions", width: 100 },
