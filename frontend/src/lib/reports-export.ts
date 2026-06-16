@@ -141,6 +141,7 @@ export async function exportSessionExcel(detail: JournalRow) {
     ["Результат, %", detail.scorePercent],
     ["Уровень", LEVELS[detail.complianceLevel] ?? detail.complianceLevel],
   ];
+  if (detail.mkspNumber) rows.splice(4, 0, ["Номер МКСП", detail.mkspNumber]);
   if (detail.note) rows.push(["Примечание", detail.note]);
   rows.push([]);
 

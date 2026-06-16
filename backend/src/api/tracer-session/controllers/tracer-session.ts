@@ -42,6 +42,7 @@ export default factories.createCoreController(TS, ({ strapi }) => ({
       date,
       time,
       note,
+      mkspNumber,
       subjects,
       participants,
       inputs,
@@ -54,6 +55,7 @@ export default factories.createCoreController(TS, ({ strapi }) => ({
       date?: string;
       time?: string;
       note?: string;
+      mkspNumber?: string;
       subjects?: SubjectInput[];
       participants?: unknown[];
       inputs?: Record<string, string>;
@@ -108,6 +110,7 @@ export default factories.createCoreController(TS, ({ strapi }) => ({
       date: date ?? new Date().toISOString().slice(0, 10),
       time: time ?? null,
       note: note ?? null,
+      mkspNumber: mkspNumber ?? null,
       criteriaSnapshot: snapshot,
       inputs: inputs && typeof inputs === "object" ? inputs : {},
       ...(photoId ? { photo: photoId } : {}),

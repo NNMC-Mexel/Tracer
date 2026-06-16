@@ -120,6 +120,7 @@ export interface JournalRow {
   time?: string;
   auditorName?: string;
   note?: string;
+  mkspNumber?: string;
   scorePercent: number;
   complianceLevel: "high" | "medium" | "low";
   inputs?: Record<string, string[]>;

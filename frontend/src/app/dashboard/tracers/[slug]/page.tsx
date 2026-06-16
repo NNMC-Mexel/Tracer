@@ -46,6 +46,9 @@ const { Title, Text, Paragraph } = Typography;
 const OLP_SLUG = "olp-nutrition";
 const OLP_DEPT_NAME = "Отдел лечебного питания";
 
+/** Опросники, где рядом с шапкой заполняется «Номер МКСП» (мед. карта пациента). */
+const MKSP_SLUGS = ["ipsg04-timeout", "ipsg04-site-marking"];
+
 function percent(
   answers: Record<number, AnswerValue>,
   scored: { id: number; invert?: boolean }[],
@@ -80,6 +83,7 @@ export default function TracerFormPage() {
   const [departmentId, setDepartmentId] = useState<number | undefined>();
   const [date, setDate] = useState<Dayjs>(dayjs());
   const [note, setNote] = useState("");
+  const [mkspNumber, setMkspNumber] = useState("");
 
   // чек-лист: ответы и примечания по критериям + участники
   const [checklist, setChecklist] = useState<Record<number, AnswerValue>>({});
@@ -146,6 +150,7 @@ export default function TracerFormPage() {
         if (d.department?.id) setDepartmentId(d.department.id);
         if (d.date) setDate(dayjs(d.date));
         setNote(d.note ?? "");
+        setMkspNumber(d.mkspNumber ?? "");
         const inp: Record<number, string[]> = {};
         if (d.inputs)
           for (const [k, v] of Object.entries(d.inputs))
@@ -191,6 +196,7 @@ export default function TracerFormPage() {
   const selectedDept = departments.find((d) => d.id === departmentId);
   const isEmployee = questionnaire?.subjectType === "employee";
   const globalSubjects = !!questionnaire?.globalSubjects;
+  const showMksp = MKSP_SLUGS.includes(slug);
   const scoredCriteria = useMemo(
     () => (questionnaire?.criteria ?? []).filter((c) => c.kind !== "input"),
     [questionnaire],
@@ -305,6 +311,7 @@ export default function TracerFormPage() {
         date: date.format("YYYY-MM-DD"),
         time: dayjs().format("HH:mm"),
         note: note || undefined,
+        mkspNumber: showMksp ? mkspNumber || undefined : undefined,
         inputs: Object.keys(inputs).length ? inputs : undefined,
         photoId,
         subjects,
@@ -520,6 +527,18 @@ export default function TracerFormPage() {
             <br />
             <Input style={{ width: 200, marginTop: 4 }} value={user?.username ?? ""} disabled />
           </div>
+          {showMksp && (
+            <div>
+              <Text strong>Номер МКСП</Text>
+              <br />
+              <Input
+                style={{ width: 200, marginTop: 4 }}
+                value={mkspNumber}
+                onChange={(e) => setMkspNumber(e.target.value)}
+                placeholder="Номер мед. карты"
+              />
+            </div>
+          )}
         </Space>
       </Card>
 

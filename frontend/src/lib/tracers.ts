@@ -87,6 +87,8 @@ export interface SubmitTracerInput {
   date?: string;
   time?: string;
   note?: string;
+  /** Номер МКСБ/МКСП (мед. карта пациента) — для IPSG-04 тайм-аут и маркировки. */
+  mkspNumber?: string;
   /** Поля-вписки (kind=input): значения прочерков по каждому критерию: { критерийId: [v1, v2, ...] }. */
   inputs?: Record<number, string[]>;
   /** id загруженного фото проверки на месте. */

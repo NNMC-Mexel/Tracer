@@ -87,6 +87,7 @@ export default function TracerPrintPage() {
         <div><b>Отделение:</b> {data.department?.name ?? "—"}</div>
         <div><b>Дата:</b> {data.date ? dayjs(data.date).format("DD.MM.YYYY") : "—"}{data.time ? `   Время: ${data.time}` : ""}</div>
         <div><b>Аудитор:</b> {data.auditorName ?? "—"}</div>
+        {data.mkspNumber ? <div><b>Номер МКСП:</b> {data.mkspNumber}</div> : null}
         <div><b>Итоговый результат:</b> {data.scorePercent}%</div>
         {data.note ? <div><b>Примечание:</b> {data.note}</div> : null}
       </div>

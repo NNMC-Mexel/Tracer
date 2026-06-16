@@ -712,6 +712,7 @@ export interface ApiTracerSessionTracerSession
       'api::tracer-session.tracer-session'
     > &
       Schema.Attribute.Private;
+    mkspNumber: Schema.Attribute.String;
     note: Schema.Attribute.Text;
     organization: Schema.Attribute.Relation<
       'manyToOne',

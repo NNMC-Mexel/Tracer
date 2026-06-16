@@ -859,6 +859,12 @@ function Journal({
                 <br />
                 <b>Аудитор:</b> {detail.auditorName ?? "—"}
                 <br />
+                {detail.mkspNumber ? (
+                  <>
+                    <b>Номер МКСП:</b> {detail.mkspNumber}
+                    <br />
+                  </>
+                ) : null}
                 <b>Результат:</b> {detail.scorePercent}%{" "}
                 <Tag color={LEVEL_LABEL[detail.complianceLevel]?.color}>
                   {LEVEL_LABEL[detail.complianceLevel]?.text}
