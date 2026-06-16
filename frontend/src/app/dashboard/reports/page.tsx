@@ -68,6 +68,8 @@ import {
   exportSummaryExcel,
   exportSummaryPdf,
   exportJournalExcel,
+  exportJournalPdf,
+  exportSessionExcel,
 } from "@/lib/reports-export";
 import { LEVEL_LABEL, listQuestionnaires, fillBlanks, type Questionnaire } from "@/lib/tracers";
 import { STRAPI_URL } from "@/lib/strapi";
@@ -731,12 +733,14 @@ function Journal({
     <Card
       title="Журнал трейсеров"
       extra={
-        <Button
-          icon={<FileExcelOutlined />}
-          onClick={() => exportJournalExcel(rows, periodLabel)}
-        >
-          Excel
-        </Button>
+        <Space>
+          <Button icon={<FileExcelOutlined />} onClick={() => exportJournalExcel(rows, periodLabel)}>
+            Excel
+          </Button>
+          <Button icon={<FilePdfOutlined />} onClick={() => exportJournalPdf(rows, periodLabel)}>
+            PDF
+          </Button>
+        </Space>
       }
     >
       <Space style={{ marginBottom: 12 }} wrap>
@@ -831,14 +835,18 @@ function Journal({
                   />
                 </div>
               ) : null}
-              <Button
-                type="primary"
-                icon={<PrinterOutlined />}
-                style={{ marginBottom: 12 }}
-                onClick={() => window.open(`/print/tracer/${detail.documentId}`, "_blank")}
-              >
-                Документ для печати (с подписями)
-              </Button>
+              <Space style={{ marginBottom: 12 }} wrap>
+                <Button
+                  type="primary"
+                  icon={<PrinterOutlined />}
+                  onClick={() => window.open(`/print/tracer/${detail.documentId}`, "_blank")}
+                >
+                  Документ для печати (с подписями)
+                </Button>
+                <Button icon={<FileExcelOutlined />} onClick={() => exportSessionExcel(detail)}>
+                  Excel
+                </Button>
+              </Space>
 
               <Title level={5}>Кто как ответил</Title>
               {isEmp ? (

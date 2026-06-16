@@ -1,10 +1,22 @@
-import type { Summary } from "./reports";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import type { Summary, JournalRow } from "./reports";
+import { fillBlanks } from "./tracers";
 
 const LEVELS: Record<string, string> = {
   high: "Высокий",
   medium: "Средний",
   low: "Низкий",
 };
+
+/** Текст оценки для Excel/печати с учётом шкалы. */
+function answerLabel(v: string | undefined, binary: boolean): string {
+  if (v === "full") return binary ? "Да" : "Соответствует";
+  if (v === "none") return binary ? "Нет" : "Не соответствует";
+  if (v === "partial") return "Частично";
+  if (v === "na") return "Неприменимо";
+  return "";
+}
+const ANS_SYM: Record<string, string> = { full: "+", partial: "±", none: "−", na: "Н/П" };
 
 interface Meta {
   title: string;
@@ -104,6 +116,104 @@ export async function exportJournalExcel(
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(data), "Журнал");
   XLSX.writeFile(wb, `Журнал_${period}.xlsx`);
+}
+
+/** Excel одного трейсера — как в карточке на фронте (сотрудники × вопросы, поля, результат). */
+export async function exportSessionExcel(detail: JournalRow) {
+  const XLSX = await import("xlsx");
+  const wb = XLSX.utils.book_new();
+  const q = detail.questionnaire;
+  const binary = q?.scale === "binary";
+  const isEmp = q?.subjectType === "employee";
+  const all = (detail.criteriaSnapshot ?? []).slice().sort((a, b) => a.order - b.order);
+  const scored = all.filter((c) => c.kind !== "input");
+  const inputCrit = all.filter((c) => c.kind === "input");
+  const ans = (o: Record<string, string> | undefined, id: number) => (o?.[id] ?? o?.[String(id)]) as string;
+
+  const rows: (string | number)[][] = [
+    ["Опросник", q?.name ?? ""],
+    ["Отдел", detail.department?.name ?? ""],
+    ["Дата", detail.date ?? ""],
+    ["Аудитор", detail.auditorName ?? ""],
+    ["Результат, %", detail.scorePercent],
+    ["Уровень", LEVELS[detail.complianceLevel] ?? detail.complianceLevel],
+  ];
+  if (detail.note) rows.push(["Примечание", detail.note]);
+  rows.push([]);
+
+  if (isEmp) {
+    rows.push(["Вопросы:"]);
+    scored.forEach((c, i) => rows.push([String(i + 1), c.text]));
+    rows.push([]);
+    rows.push(["№", "ФИО", "Должность", ...scored.map((_, i) => String(i + 1)), "%"]);
+    (detail.subjects ?? []).forEach((s, idx) => {
+      const row: (string | number)[] = [
+        idx + 1,
+        s.label ?? s.employee?.fullName ?? "",
+        s.positionSnapshot ?? s.employee?.position ?? "",
+      ];
+      scored.forEach((c) => row.push(ANS_SYM[ans(s.answers, c.id)] ?? ""));
+      row.push(`${s.scorePercent}%`);
+      rows.push(row);
+    });
+    rows.push([]);
+    rows.push(["Обозначения", binary ? "+ да, − нет" : "+ соответствует, ± частично, − не соответствует"]);
+  } else {
+    rows.push(["№", "Критерий", "Оценка", "Примечание"]);
+    const subj = detail.subjects?.[0];
+    scored.forEach((c, idx) =>
+      rows.push([idx + 1, c.text, answerLabel(ans(subj?.answers, c.id), binary), ans(subj?.notes, c.id) ?? ""]),
+    );
+  }
+
+  if (inputCrit.length) {
+    rows.push([]);
+    rows.push(["Заполненные поля"]);
+    inputCrit.forEach((c) =>
+      rows.push([fillBlanks(c.text, detail.inputs?.[c.id] ?? detail.inputs?.[String(c.id)])]),
+    );
+  }
+
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), "Трейсер");
+  XLSX.writeFile(wb, `Трейсер_${(detail.date ?? "").replace(/-/g, "")}.xlsx`);
+}
+
+/** PDF журнала трейсеров (список за период). */
+export async function exportJournalPdf(rows: JournalRow[], period: string) {
+  const pdfMake = await getPdfMake();
+  const ACCENT = "#1677ff";
+  const th = (t: string) => ({ text: t, bold: true, color: "white", fontSize: 9 });
+  const body: any[][] = [
+    [th("Дата"), th("Опросник"), th("Отдел"), th("Аудитор"), th("%"), th("Уровень")],
+    ...rows.map((r) => [
+      r.date ? new Date(r.date).toLocaleDateString("ru-RU") : "",
+      r.questionnaire?.name ?? "",
+      r.department?.name ?? "",
+      r.auditorName ?? "",
+      { text: `${r.scorePercent}%`, alignment: "center" },
+      LEVELS[r.complianceLevel] ?? r.complianceLevel,
+    ]),
+  ];
+  const doc = {
+    pageOrientation: "landscape" as const,
+    pageMargins: [28, 28, 28, 28] as [number, number, number, number],
+    content: [
+      { text: "Журнал трейсеров", fontSize: 16, bold: true, margin: [0, 0, 0, 2] },
+      { text: `Период: ${period} · всего: ${rows.length}`, color: "#888", margin: [0, 0, 0, 10] },
+      {
+        table: { headerRows: 1, widths: ["auto", "*", "*", "auto", "auto", "auto"], body },
+        layout: {
+          fillColor: (i: number) => (i === 0 ? ACCENT : i % 2 === 0 ? "#f5f8ff" : null),
+          hLineWidth: () => 0.5,
+          vLineWidth: () => 0.5,
+          hLineColor: () => "#e0e0e0",
+          vLineColor: () => "#e0e0e0",
+        },
+      },
+    ],
+    defaultStyle: { fontSize: 9 },
+  };
+  pdfMake.createPdf(doc).download(`Журнал_${period}.pdf`);
 }
 
 // --- PDF (pdfmake, шрифт Roboto поддерживает кириллицу) -----------------------

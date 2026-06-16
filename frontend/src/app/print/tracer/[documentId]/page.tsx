@@ -32,6 +32,11 @@ export default function TracerPrintPage() {
       .catch(() => setNotFound(true));
   }, [documentId]);
 
+  // убираем слоган приложения из шапки печати браузера (заголовок = имя трейсера)
+  useEffect(() => {
+    if (data) document.title = data.questionnaire?.name ?? "Трейсер";
+  }, [data]);
+
   if (loading || !user) return <Spin style={{ margin: 40 }} />;
   if (notFound) return <Result status="404" title="Трейсер не найден" />;
   if (!data) return <Spin style={{ margin: 40 }} />;
