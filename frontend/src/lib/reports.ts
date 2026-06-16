@@ -47,6 +47,20 @@ export interface AnswerCounts {
   none: number;
   na: number;
 }
+export interface CriterionStat {
+  id: number;
+  text: string;
+  full: number;
+  partial: number;
+  none: number;
+  na: number;
+  compliancePct: number | null;
+  problemPct: number;
+}
+export interface Heatmap {
+  criteria: { id: number; text: string }[];
+  rows: { name: string; cells: { critId: number; compliancePct: number | null; none: number; partial: number }[] }[];
+}
 export interface Summary {
   kpi: SummaryKpi;
   byDepartment: DeptStat[];
@@ -54,6 +68,8 @@ export interface Summary {
   byCategory: CategoryStat[];
   byEmployee: EmployeeStat[];
   answerCounts?: AnswerCounts;
+  byCriterion?: CriterionStat[];
+  heatmap?: Heatmap | null;
   monthly: MonthStat[];
 }
 

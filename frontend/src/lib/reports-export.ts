@@ -237,6 +237,28 @@ export async function exportSummaryPdf(summary: Summary, meta: Meta) {
     }
   }
 
+  if (summary.byCriterion && summary.byCriterion.length) {
+    content.push(
+      ...block(
+        "Проблемные вопросы (худшие сверху)",
+        [th("Вопрос"), th("✓", "center"), th("±", "center"), th("✗", "center"), th("% проблем", "center")],
+        ["*", "auto", "auto", "auto", "auto"],
+        summary.byCriterion.map((c) => [
+          c.text,
+          { text: String(c.full), alignment: "center" },
+          { text: String(c.partial), alignment: "center" },
+          { text: String(c.none), alignment: "center" },
+          {
+            text: `${c.problemPct}%`,
+            alignment: "center",
+            bold: true,
+            color: c.problemPct >= 40 ? "#cf1322" : c.problemPct >= 15 ? "#d48806" : "#389e0d",
+          },
+        ]),
+      ),
+    );
+  }
+
   if (summary.byEmployee.length) {
     content.push(
       ...block(

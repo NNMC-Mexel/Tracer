@@ -61,6 +61,7 @@ import {
   CATEGORY_LABEL,
   type Summary,
   type JournalRow,
+  type Heatmap,
 } from "@/lib/reports";
 import { deleteTracer } from "@/lib/tracers";
 import {
@@ -237,6 +238,81 @@ function AnswerBreakdown({ summary }: { summary: Summary }) {
   );
 }
 
+/** Проблемные вопросы — рейтинг критериев по доле провалов (худшие сверху). */
+function WeakCriteria({ summary }: { summary: Summary }) {
+  const list = summary.byCriterion;
+  if (!list || list.length === 0) return null;
+  return (
+    <Card title="Проблемные вопросы — где слабее всего (худшие сверху)" size="small">
+      <Space orientation="vertical" size={12} style={{ width: "100%" }}>
+        {list.map((c) => {
+          const total = c.full + c.partial + c.none;
+          const w = (n: number) => (total ? (n / total) * 100 : 0);
+          const p = c.problemPct;
+          const col = p >= 40 ? "#cf1322" : p >= 15 ? "#d48806" : "#8c8c8c";
+          return (
+            <div key={c.id}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                <span style={{ flex: 1, fontSize: 13 }}>{c.text}</span>
+                <span style={{ color: col, fontWeight: 700, whiteSpace: "nowrap" }}>{p}% проблем</span>
+              </div>
+              <div style={{ display: "flex", height: 12, marginTop: 4, borderRadius: 4, overflow: "hidden", background: "#f0f0f0" }}>
+                <div style={{ width: `${w(c.full)}%`, background: "#52c41a" }} />
+                <div style={{ width: `${w(c.partial)}%`, background: "#faad14" }} />
+                <div style={{ width: `${w(c.none)}%`, background: "#ff4d4f" }} />
+              </div>
+              <div style={{ fontSize: 11, color: "#999", marginTop: 2 }}>
+                ✓ {c.full} соответствует · ± {c.partial} частично · ✗ {c.none} не соответствует
+              </div>
+            </div>
+          );
+        })}
+      </Space>
+    </Card>
+  );
+}
+
+/** Тепловая карта: отделы × вопросы (% соответствия). Красные ячейки = слабые места. */
+function HeatmapCard({ summary }: { summary: Summary }) {
+  const hm = summary.heatmap;
+  if (!hm || hm.rows.length < 2 || hm.criteria.length === 0) return null;
+  const color = (p: number | null) =>
+    p == null ? "#f0f0f0" : p >= 85 ? "#52c41a" : p >= 60 ? "#faad14" : "#ff4d4f";
+  const columns: ColumnsType<Heatmap["rows"][number]> = [
+    { title: "Отдел", dataIndex: "name", key: "name", fixed: "left", width: 170, render: (t: string) => <span style={{ fontSize: 12 }}>{t}</span> },
+    ...hm.criteria.map((c, i) => ({
+      title: <Tooltip title={c.text}><span>{i + 1}</span></Tooltip>,
+      key: `c${c.id}`,
+      align: "center" as const,
+      width: 42,
+      render: (_: unknown, row: Heatmap["rows"][number]) => {
+        const cell = row.cells.find((x) => x.critId === c.id);
+        const p = cell?.compliancePct ?? null;
+        return (
+          <div style={{ background: color(p), color: p == null ? "#999" : "#fff", borderRadius: 3, fontSize: 11, padding: "3px 0", fontWeight: 600 }}>
+            {p == null ? "—" : Math.round(p)}
+          </div>
+        );
+      },
+    })),
+  ];
+  return (
+    <Card title="Тепловая карта: отделы × вопросы (% соответствия)" size="small">
+      <Table
+        rowKey="name"
+        size="small"
+        pagination={false}
+        scroll={{ x: "max-content" }}
+        columns={columns}
+        dataSource={hm.rows}
+      />
+      <div style={{ fontSize: 11, color: "#999", marginTop: 6 }}>
+        Зелёный ≥ 85% · жёлтый 60–84% · красный &lt; 60%. Номер столбца — вопрос (наведите курсор). Красные ячейки — слабые места.
+      </div>
+    </Card>
+  );
+}
+
 /** Проваливающийся отчёт: Трейсеры → Отделы → Сотрудники. */
 function DrillDown({ from, to, periodLabel, programId, ready }: { from: string; to: string; periodLabel: string; programId?: number; ready: boolean }) {
   const { message } = App.useApp();
@@ -245,6 +321,18 @@ function DrillDown({ from, to, periodLabel, programId, ready }: { from: string; 
   const [loading, setLoading] = useState(false);
   const [selQ, setSelQ] = useState<{ id: number; name: string } | null>(null);
   const [selDept, setSelDept] = useState<{ id?: number; name: string } | null>(null);
+  const [deptSummary, setDeptSummary] = useState<Summary | null>(null);
+
+  // уровень 2 — отчёт строго по выбранному отделу (для «проблемных вопросов» отдела)
+  useEffect(() => {
+    if (!selQ || !selDept?.id) {
+      setDeptSummary(null);
+      return;
+    }
+    getSummary({ from, to, questionnaireId: selQ.id, departmentId: selDept.id, programId })
+      .then(setDeptSummary)
+      .catch(() => {});
+  }, [selQ, selDept, from, to, programId]);
 
   // уровень 0 — список трейсеров
   useEffect(() => {
@@ -328,8 +416,14 @@ function DrillDown({ from, to, periodLabel, programId, ready }: { from: string; 
       {selQ && !selDept && (
         loading || !tracer ? <Spin /> : <LevelDepartments summary={tracer} title={selQ.name} onPick={setSelDept} />
       )}
-      {selQ && selDept && tracer && (
-        <LevelEmployees summary={tracer} department={selDept.name} />
+      {selQ && selDept && (
+        deptSummary ? (
+          <LevelEmployees summary={deptSummary} department={selDept.name} scoped />
+        ) : tracer ? (
+          <LevelEmployees summary={tracer} department={selDept.name} />
+        ) : (
+          <Spin />
+        )
       )}
     </div>
   );
@@ -406,6 +500,8 @@ function LevelDepartments({
         </Space>
       </Card>
 
+      <WeakCriteria summary={summary} />
+      <HeatmapCard summary={summary} />
       <AnswerBreakdown summary={summary} />
       <MonthlyChart summary={summary} />
       <DeptCompareChart summary={summary} />
@@ -466,8 +562,9 @@ function LevelDepartments({
   );
 }
 
-function LevelEmployees({ summary, department }: { summary: Summary; department: string }) {
-  const people = summary.byEmployee.filter((e) => e.department === department);
+function LevelEmployees({ summary, department, scoped }: { summary: Summary; department: string; scoped?: boolean }) {
+  // scoped: summary уже по отделу (с сервера) — берём всех; иначе фильтруем клиентски
+  const people = scoped ? summary.byEmployee : summary.byEmployee.filter((e) => e.department === department);
   const avg = people.length
     ? Math.round((people.reduce((a, e) => a + e.scorePercent, 0) / people.length) * 10) / 10
     : 0;
@@ -480,6 +577,8 @@ function LevelEmployees({ summary, department }: { summary: Summary; department:
           <Statistic title="Проверено сотрудников" value={people.length} />
         </Space>
       </Card>
+
+      {scoped && <WeakCriteria summary={summary} />}
 
       <Card title="Сотрудники">
         <Table

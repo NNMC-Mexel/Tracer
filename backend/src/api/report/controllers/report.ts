@@ -186,6 +186,105 @@ export default {
       }
     }
 
+    // по критериям + тепловая карта отдел×вопрос (только при выбранном опроснике)
+    type Cnt = { full: number; partial: number; none: number; na: number };
+    const emptyCnt = (): Cnt => ({ full: 0, partial: 0, none: 0, na: 0 });
+    const compliance = (o: Cnt): number | null => {
+      const appl = o.full + o.partial + o.none;
+      return appl ? Math.round(((o.full + o.partial * 0.5) / appl) * 1000) / 10 : null;
+    };
+    let byCriterion: unknown[] = [];
+    let heatmap: unknown = null;
+    if (questionnaireId) {
+      // метаданные критериев: снимки сессий → relation → плейсхолдер по id из ответов
+      const critMeta = new Map<number, { text: string; kind: string; order: number }>();
+      for (const s of sessions) {
+        for (const c of (s.criteriaSnapshot ?? []) as {
+          id: number;
+          text: string;
+          kind?: string;
+          order?: number;
+        }[]) {
+          if (c?.id != null && !critMeta.has(c.id)) {
+            critMeta.set(c.id, { text: c.text, kind: c.kind ?? "scored", order: c.order ?? 0 });
+          }
+        }
+      }
+      try {
+        const qFull = await strapi.db
+          .query("api::questionnaire.questionnaire")
+          .findOne({ where: { id: Number(questionnaireId) }, populate: { criteria: true } });
+        for (const c of qFull?.criteria ?? []) {
+          if (!critMeta.has(c.id)) {
+            critMeta.set(c.id, { text: c.text, kind: c.kind ?? "scored", order: c.order ?? 0 });
+          }
+        }
+      } catch {
+        /* relation может отсутствовать — игнорируем */
+      }
+      for (const sub of subjects) {
+        for (const k of Object.keys(sub.answers || {})) {
+          const id = Number(k);
+          if (id && !critMeta.has(id)) critMeta.set(id, { text: `Вопрос #${id}`, kind: "scored", order: 9999 });
+        }
+      }
+      const scored = [...critMeta.entries()]
+        .filter(([, m]) => m.kind !== "input")
+        .map(([id, m]) => ({ id, text: m.text, order: m.order }))
+        .sort((a, b) => a.order - b.order);
+
+      const cAgg = new Map<number, Cnt>();
+      const dcAgg = new Map<string, Map<number, Cnt>>();
+      for (const sub of subjects) {
+        const ans = (sub.answers || {}) as Record<string, string>;
+        const deptName = sub.session?.department?.name ?? sub.departmentSnapshot ?? "—";
+        for (const c of scored) {
+          const v = ans[c.id] ?? ans[String(c.id)];
+          if (v === undefined || v === null) continue;
+          if (!cAgg.has(c.id)) cAgg.set(c.id, emptyCnt());
+          const o = cAgg.get(c.id)!;
+          if (o[v as keyof Cnt] !== undefined) o[v as keyof Cnt]++;
+          if (!dcAgg.has(deptName)) dcAgg.set(deptName, new Map());
+          const dm = dcAgg.get(deptName)!;
+          if (!dm.has(c.id)) dm.set(c.id, emptyCnt());
+          const o2 = dm.get(c.id)!;
+          if (o2[v as keyof Cnt] !== undefined) o2[v as keyof Cnt]++;
+        }
+      }
+
+      byCriterion = scored
+        .map((c) => {
+          const o = cAgg.get(c.id) ?? emptyCnt();
+          const appl = o.full + o.partial + o.none;
+          return {
+            id: c.id,
+            text: c.text,
+            full: o.full,
+            partial: o.partial,
+            none: o.none,
+            na: o.na,
+            compliancePct: compliance(o),
+            problemPct: appl ? Math.round(((o.partial + o.none) / appl) * 1000) / 10 : 0,
+          };
+        })
+        .filter((c) => c.full + c.partial + c.none > 0)
+        .sort((a, b) => b.problemPct - a.problemPct || b.none - a.none);
+
+      const depts = [...dcAgg.keys()];
+      if (depts.length > 0 && scored.length > 0) {
+        heatmap = {
+          criteria: scored.map((c) => ({ id: c.id, text: c.text })),
+          rows: depts.map((name) => ({
+            name,
+            cells: scored.map((c) => {
+              const o = dcAgg.get(name)?.get(c.id) ?? emptyCnt();
+              return { critId: c.id, compliancePct: compliance(o), none: o.none, partial: o.partial };
+            }),
+          })),
+        };
+      }
+    }
+
     // детализация по сотрудникам (только при выбранном опроснике)
     const byEmployee = questionnaireId
       ? subjects
@@ -214,6 +313,8 @@ export default {
         byCategory,
         byEmployee,
         answerCounts,
+        byCriterion,
+        heatmap,
         monthly,
       },
     };
