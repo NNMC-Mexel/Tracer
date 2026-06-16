@@ -150,7 +150,7 @@ const QUALITY = [
     order: 29,
     criteria: [
       "Проводился ли тайм-аут до начала анестезии и до рассечения кожи; заполнена ли форма Тайм-аут? (проверка формы)",
-      "Имелись ли проблемы с оборудованием, требующие устранения?",
+      { t: "Имелись ли проблемы с оборудованием, требующие устранения?", invert: true },
       "Проведён ли подсчёт мягкого инвентаря и игл?",
       "Проводился ли тайм-аут до того, как пациент покинет операционную; заполнена ли форма Тайм-аут? (проверка формы)",
     ],
@@ -239,8 +239,9 @@ async function main() {
         const isInput = isObj && c.input;
         const text = isObj ? c.t : c;
         const allowNa = isObj ? !!c.allowNa : false;
+        const invert = isObj ? !!c.invert : false;
         await app.db.query(C).create({
-          data: { text, kind: isInput ? "input" : "scored", allowNa, order: i++, questionnaire: rec.id },
+          data: { text, kind: isInput ? "input" : "scored", allowNa, invert, order: i++, questionnaire: rec.id },
         });
         if (isInput) inputN++; else scoredN++;
       }

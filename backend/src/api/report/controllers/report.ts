@@ -211,16 +211,17 @@ export default {
     let heatmap: unknown = null;
     if (questionnaireId) {
       // метаданные критериев: снимки сессий → relation → плейсхолдер по id из ответов
-      const critMeta = new Map<number, { text: string; kind: string; order: number }>();
+      const critMeta = new Map<number, { text: string; kind: string; order: number; invert: boolean }>();
       for (const s of sessions) {
         for (const c of (s.criteriaSnapshot ?? []) as {
           id: number;
           text: string;
           kind?: string;
           order?: number;
+          invert?: boolean;
         }[]) {
           if (c?.id != null && !critMeta.has(c.id)) {
-            critMeta.set(c.id, { text: c.text, kind: c.kind ?? "scored", order: c.order ?? 0 });
+            critMeta.set(c.id, { text: c.text, kind: c.kind ?? "scored", order: c.order ?? 0, invert: !!c.invert });
           }
         }
       }
@@ -230,7 +231,7 @@ export default {
           .findOne({ where: { id: Number(questionnaireId) }, populate: { criteria: true } });
         for (const c of qFull?.criteria ?? []) {
           if (!critMeta.has(c.id)) {
-            critMeta.set(c.id, { text: c.text, kind: c.kind ?? "scored", order: c.order ?? 0 });
+            critMeta.set(c.id, { text: c.text, kind: c.kind ?? "scored", order: c.order ?? 0, invert: !!c.invert });
           }
         }
       } catch {
@@ -239,13 +240,17 @@ export default {
       for (const sub of subjects) {
         for (const k of Object.keys(sub.answers || {})) {
           const id = Number(k);
-          if (id && !critMeta.has(id)) critMeta.set(id, { text: `Вопрос #${id}`, kind: "scored", order: 9999 });
+          if (id && !critMeta.has(id)) critMeta.set(id, { text: `Вопрос #${id}`, kind: "scored", order: 9999, invert: false });
         }
       }
       const scored = [...critMeta.entries()]
         .filter(([, m]) => m.kind !== "input")
-        .map(([id, m]) => ({ id, text: m.text, order: m.order }))
+        .map(([id, m]) => ({ id, text: m.text, order: m.order, invert: m.invert }))
         .sort((a, b) => a.order - b.order);
+
+      // для обратных критериев меняем «Да»↔«Нет», чтобы «соответствие» = хороший ответ
+      const norm = (v: string, invert: boolean) =>
+        invert ? (v === "full" ? "none" : v === "none" ? "full" : v) : v;
 
       const cAgg = new Map<number, Cnt>();
       const dcAgg = new Map<string, Map<number, Cnt>>();
@@ -253,8 +258,9 @@ export default {
         const ans = (sub.answers || {}) as Record<string, string>;
         const deptName = sub.session?.department?.name ?? sub.departmentSnapshot ?? "—";
         for (const c of scored) {
-          const v = ans[c.id] ?? ans[String(c.id)];
-          if (v === undefined || v === null) continue;
+          const raw = ans[c.id] ?? ans[String(c.id)];
+          if (raw === undefined || raw === null) continue;
+          const v = norm(raw, c.invert);
           if (!cAgg.has(c.id)) cAgg.set(c.id, emptyCnt());
           const o = cAgg.get(c.id)!;
           if (o[v as keyof Cnt] !== undefined) o[v as keyof Cnt]++;

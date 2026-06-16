@@ -12,7 +12,7 @@ interface Opt {
   color: string;
 }
 
-function buildOpts(scale: Scale, allowNa?: boolean): Opt[] {
+function buildOpts(scale: Scale, allowNa?: boolean, invert?: boolean): Opt[] {
   const opts: Opt[] =
     scale === "binary"
       ? [
@@ -24,6 +24,18 @@ function buildOpts(scale: Scale, allowNa?: boolean): Opt[] {
           { v: "partial", label: "Частично", icon: <MinusOutlined />, color: "#faad14" },
           { v: "none", label: "Не соответствует", icon: <CloseOutlined />, color: "#ff4d4f" },
         ];
+  // обратный критерий: «Нет» — хорошо (зелёный ✓), «Да» — плохо (красный ✗)
+  if (invert) {
+    const f = opts.find((o) => o.v === "full");
+    const n = opts.find((o) => o.v === "none");
+    if (f && n) {
+      const tIcon = f.icon, tColor = f.color;
+      f.icon = n.icon;
+      f.color = n.color;
+      n.icon = tIcon;
+      n.color = tColor;
+    }
+  }
   if (allowNa) opts.push({ v: "na", label: "Не требуется", icon: <StopOutlined />, color: "#8c8c8c" });
   return opts;
 }
@@ -38,6 +50,8 @@ interface Props {
   scale?: Scale;
   /** Добавить кнопку «Неприменим» (исключается из расчёта). */
   allowNa?: boolean;
+  /** Обратный критерий: «Нет» = хорошо. */
+  invert?: boolean;
 }
 
 /**
@@ -53,8 +67,9 @@ export default function AnswerSelect({
   compact,
   scale = "three_level",
   allowNa,
+  invert,
 }: Props) {
-  const opts = buildOpts(scale, allowNa);
+  const opts = buildOpts(scale, allowNa, invert);
   return (
     <Space.Compact>
       {opts.map((o) => {

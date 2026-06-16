@@ -456,6 +456,7 @@ export interface ApiCriterionCriterion extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    invert: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     kind: Schema.Attribute.Enumeration<['scored', 'input']> &
       Schema.Attribute.Required &
       Schema.Attribute.DefaultTo<'scored'>;

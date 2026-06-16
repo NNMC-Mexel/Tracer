@@ -20,6 +20,8 @@ export interface Criterion {
   kind?: CriterionKind;
   /** Разрешить вариант «Не требуется» (исключается из %) для этого критерия. */
   allowNa?: boolean;
+  /** Обратный критерий: «Нет» = соответствует (1), «Да» = не соответствует (0). */
+  invert?: boolean;
   order: number;
 }
 

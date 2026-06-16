@@ -46,19 +46,22 @@ const { Title, Text, Paragraph } = Typography;
 const OLP_SLUG = "olp-nutrition";
 const OLP_DEPT_NAME = "Отдел лечебного питания";
 
-function percent(answers: Record<number, AnswerValue>, count: number): number {
-  if (!count) return 0;
+function percent(
+  answers: Record<number, AnswerValue>,
+  scored: { id: number; invert?: boolean }[],
+): number {
   let sum = 0;
-  let na = 0;
-  for (const v of Object.values(answers)) {
-    if (v === "na") {
-      na++; // «неприменимо» — вне расчёта
-      continue;
-    }
-    sum += ANSWER_WEIGHT[v] ?? 0;
+  let applicable = 0;
+  for (const c of scored) {
+    const v = answers[c.id];
+    if (v === "na") continue; // «не требуется» — вне расчёта
+    applicable++;
+    if (v === undefined) continue; // не отвечено — вес 0
+    let w = ANSWER_WEIGHT[v] ?? 0;
+    if (c.invert) w = 1 - w; // обратный критерий: «Нет»→1, «Да»→0
+    sum += w;
   }
-  const denom = count - na;
-  return denom ? Math.round((sum / denom) * 1000) / 10 : 0;
+  return applicable ? Math.round((sum / applicable) * 1000) / 10 : 0;
 }
 
 export default function TracerFormPage() {
@@ -196,7 +199,6 @@ export default function TracerFormPage() {
     () => (questionnaire?.criteria ?? []).filter((c) => c.kind === "input"),
     [questionnaire],
   );
-  const criteriaCount = scoredCriteria.length;
 
   // смена отдела очищает выбранных людей (коллектив теперь другой)
   function changeDepartment(id: number | undefined) {
@@ -228,11 +230,11 @@ export default function TracerFormPage() {
 
   const livePercent = useMemo(() => {
     if (!questionnaire) return 0;
-    if (!isEmployee) return percent(checklist, criteriaCount);
+    if (!isEmployee) return percent(checklist, scoredCriteria);
     if (rows.length === 0) return 0;
-    const sum = rows.reduce((acc, e) => acc + percent(empAnswers[e.id] ?? {}, criteriaCount), 0);
+    const sum = rows.reduce((acc, e) => acc + percent(empAnswers[e.id] ?? {}, scoredCriteria), 0);
     return Math.round((sum / rows.length) * 10) / 10;
-  }, [questionnaire, isEmployee, checklist, rows, empAnswers, criteriaCount]);
+  }, [questionnaire, isEmployee, checklist, rows, empAnswers, scoredCriteria]);
 
   async function onSave() {
     if (!questionnaire) return;
@@ -431,6 +433,7 @@ export default function TracerFormPage() {
           compact
           scale={questionnaire.scale}
           allowNa={questionnaire.allowNa || c.allowNa}
+          invert={c.invert}
           value={empAnswers[e.id]?.[c.id]}
           onChange={(v) =>
             setEmpAnswers((prev) => ({
@@ -446,7 +449,7 @@ export default function TracerFormPage() {
       key: "pct",
       fixed: "right",
       width: 70,
-      render: (_, e) => <b>{percent(empAnswers[e.id] ?? {}, criteriaCount)}%</b>,
+      render: (_, e) => <b>{percent(empAnswers[e.id] ?? {}, scoredCriteria)}%</b>,
     },
     {
       title: "",
@@ -628,6 +631,7 @@ export default function TracerFormPage() {
                     <AnswerSelect
                       scale={questionnaire.scale}
                       allowNa={questionnaire.allowNa || c.allowNa}
+                      invert={c.invert}
                       value={checklist[c.id]}
                       onChange={(v) => setChecklist((p) => ({ ...p, [c.id]: v }))}
                     />

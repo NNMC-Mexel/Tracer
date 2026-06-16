@@ -47,6 +47,9 @@ export default function TracerPrintPage() {
   const isEmployee = data.questionnaire?.subjectType === "employee";
   const isBinary = data.questionnaire?.scale === "binary";
   const subjects = data.subjects ?? [];
+  // обратные критерии: символ = соответствие («Нет» → +)
+  const dispV = (c: { invert?: boolean }, v?: string) =>
+    c.invert ? (v === "full" ? "none" : v === "none" ? "full" : v) : v;
 
   return (
     <div className="print-root">
@@ -131,7 +134,7 @@ export default function TracerPrintPage() {
                   <td>{s.positionSnapshot ?? s.employee?.position ?? ""}</td>
                   {criteria.map((c) => (
                     <td key={c.id} className="sym">
-                      {ANS_SYMBOL[s.answers?.[c.id] as string] ?? ""}
+                      {ANS_SYMBOL[dispV(c, s.answers?.[c.id] as string) as string] ?? ""}
                     </td>
                   ))}
                   <td className="sym">{s.scorePercent}%</td>

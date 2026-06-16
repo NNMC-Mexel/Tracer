@@ -124,7 +124,7 @@ export interface JournalRow {
   complianceLevel: "high" | "medium" | "low";
   inputs?: Record<string, string[]>;
   photo?: { url: string; formats?: { thumbnail?: { url: string }; small?: { url: string } } } | null;
-  criteriaSnapshot?: { id: number; text: string; order: number; kind?: string }[];
+  criteriaSnapshot?: { id: number; text: string; order: number; kind?: string; invert?: boolean }[];
   participants?: { employeeId?: number; fullName?: string; position?: string }[];
   department?: { id: number; name: string } | null;
   questionnaire?: { id: number; name: string; slug: string; subjectType: string; scale?: string; allowNa?: boolean } | null;

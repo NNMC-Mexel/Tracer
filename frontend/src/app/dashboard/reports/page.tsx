@@ -841,6 +841,9 @@ function Journal({
           const inputCrit = allCrit.filter((c) => c.kind === "input");
           const isEmp = detail.questionnaire?.subjectType === "employee";
           const isBin = detail.questionnaire?.scale === "binary";
+          // для обратных критериев символ/цвет = соответствие («Нет» → ✓), текст остаётся буквальным
+          const dispV = (c: { invert?: boolean }, v?: string) =>
+            c.invert ? (v === "full" ? "none" : v === "none" ? "full" : v) : v;
           const word = (v?: string) =>
             v === "full" ? (isBin ? "Да" : "Соотв.")
             : v === "none" ? (isBin ? "Нет" : "Не соотв.")
@@ -907,7 +910,7 @@ function Journal({
                       align: "center" as const,
                       width: 44,
                       render: (_: unknown, s: NonNullable<JournalRow["subjects"]>[number]) => {
-                        const a = ANS[s.answers?.[c.id] as string];
+                        const a = ANS[dispV(c, s.answers?.[c.id] as string) as string];
                         return a ? <span style={{ color: a.c, fontWeight: 700 }}>{a.s}</span> : "";
                       },
                     })),
@@ -929,7 +932,7 @@ function Journal({
                       width: 130,
                       render: (_, c) => {
                         const v = detail.subjects?.[0]?.answers?.[c.id] as string;
-                        const a = ANS[v];
+                        const a = ANS[dispV(c, v) as string];
                         return a ? <span style={{ color: a.c, fontWeight: 700 }}>{a.s} {word(v)}</span> : "";
                       },
                     },

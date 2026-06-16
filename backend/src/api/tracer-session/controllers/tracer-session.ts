@@ -79,6 +79,7 @@ export default factories.createCoreController(TS, ({ strapi }) => ({
       text: c.text,
       order: c.order,
       kind: c.kind ?? "scored",
+      invert: !!c.invert,
     }));
 
     const computed = subjects.map((s) => {
@@ -88,7 +89,10 @@ export default factories.createCoreController(TS, ({ strapi }) => ({
         const v = (s.answers?.[c.id] ?? s.answers?.[String(c.id)]) as string;
         if (v === "na") continue; // «не применимо» — вне расчёта
         applicable++;
-        sum += WEIGHT[v] ?? 0;
+        let w = WEIGHT[v];
+        if (w === undefined) w = 0;
+        else if (c.invert) w = 1 - w; // обратный критерий: «Да»→0, «Нет»→1
+        sum += w;
       }
       const pct = applicable ? round1((sum / applicable) * 100) : 0;
       return { input: s, pct };

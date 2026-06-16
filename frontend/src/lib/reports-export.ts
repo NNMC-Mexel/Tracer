@@ -129,6 +129,9 @@ export async function exportSessionExcel(detail: JournalRow) {
   const scored = all.filter((c) => c.kind !== "input");
   const inputCrit = all.filter((c) => c.kind === "input");
   const ans = (o: Record<string, string> | undefined, id: number) => (o?.[id] ?? o?.[String(id)]) as string;
+  // обратные критерии: символ = соответствие («Нет» → +)
+  const dispV = (c: { invert?: boolean }, v?: string) =>
+    c.invert ? (v === "full" ? "none" : v === "none" ? "full" : v) : v;
 
   const rows: (string | number)[][] = [
     ["Опросник", q?.name ?? ""],
@@ -152,7 +155,7 @@ export async function exportSessionExcel(detail: JournalRow) {
         s.label ?? s.employee?.fullName ?? "",
         s.positionSnapshot ?? s.employee?.position ?? "",
       ];
-      scored.forEach((c) => row.push(ANS_SYM[ans(s.answers, c.id)] ?? ""));
+      scored.forEach((c) => row.push(ANS_SYM[dispV(c, ans(s.answers, c.id)) as string] ?? ""));
       row.push(`${s.scorePercent}%`);
       rows.push(row);
     });
