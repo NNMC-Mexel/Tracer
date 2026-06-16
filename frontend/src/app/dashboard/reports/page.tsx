@@ -315,6 +315,47 @@ function HeatmapCard({ summary }: { summary: Summary }) {
   );
 }
 
+/** Проблемные трейсеры — распределение провалов по опросникам (худшие сверху, кликабельно). */
+function WeakTracers({ summary, onPick }: { summary: Summary; onPick: (q: { id: number; name: string }) => void }) {
+  const list = (summary.byQuestionnaire ?? [])
+    .filter((q) => (q.full ?? 0) + (q.partial ?? 0) + (q.none ?? 0) > 0)
+    .slice()
+    .sort((a, b) => (b.problemPct ?? 0) - (a.problemPct ?? 0));
+  if (list.length === 0) return null;
+  return (
+    <Card title="Проблемные трейсеры — где больше провалов (нажмите, чтобы увидеть вопросы)" size="small">
+      <Space orientation="vertical" size={12} style={{ width: "100%" }}>
+        {list.map((q) => {
+          const total = (q.full ?? 0) + (q.partial ?? 0) + (q.none ?? 0);
+          const w = (n?: number) => (total ? ((n ?? 0) / total) * 100 : 0);
+          const p = q.problemPct ?? 0;
+          const col = p >= 40 ? "#cf1322" : p >= 15 ? "#d48806" : "#8c8c8c";
+          return (
+            <div
+              key={q.id ?? q.name}
+              style={{ cursor: q.id ? "pointer" : "default" }}
+              onClick={() => q.id && onPick({ id: q.id, name: q.name })}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                <span style={{ flex: 1, fontSize: 13 }}>{q.name}</span>
+                <span style={{ color: col, fontWeight: 700, whiteSpace: "nowrap" }}>{p}% проблем ›</span>
+              </div>
+              <div style={{ display: "flex", height: 12, marginTop: 4, borderRadius: 4, overflow: "hidden", background: "#f0f0f0" }}>
+                <div style={{ width: `${w(q.full)}%`, background: "#52c41a" }} />
+                <div style={{ width: `${w(q.partial)}%`, background: "#faad14" }} />
+                <div style={{ width: `${w(q.none)}%`, background: "#ff4d4f" }} />
+              </div>
+              <div style={{ fontSize: 11, color: "#999", marginTop: 2 }}>
+                ✓ {q.full ?? 0} соответствует · ± {q.partial ?? 0} частично · ✗ {q.none ?? 0} не соответствует
+              </div>
+            </div>
+          );
+        })}
+      </Space>
+    </Card>
+  );
+}
+
 /** Проваливающийся отчёт: Трейсеры → Отделы → Сотрудники. */
 function DrillDown({ from, to, periodLabel, programId, ready }: { from: string; to: string; periodLabel: string; programId?: number; ready: boolean }) {
   const { message } = App.useApp();
@@ -448,6 +489,7 @@ function LevelTracers({ summary, onPick }: { summary: Summary; onPick: (q: { id:
       </Row>
 
       <AnswerBreakdown summary={summary} />
+      <WeakTracers summary={summary} onPick={onPick} />
       <MonthlyChart summary={summary} />
       <DeptCompareChart summary={summary} />
 

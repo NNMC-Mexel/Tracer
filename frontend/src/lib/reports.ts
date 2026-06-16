@@ -22,6 +22,10 @@ export interface QStat {
   sessions: number;
   departments?: number;
   avgPercent: number;
+  full?: number;
+  partial?: number;
+  none?: number;
+  problemPct?: number;
 }
 export interface CategoryStat {
   category: string;

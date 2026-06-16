@@ -98,6 +98,8 @@ export default {
     const subjByDept = new Map<number, { name: string; scores: Num[] }>();
     const auditedByDept = new Map<number, Set<number>>();
     const qByDept = new Map<number, { name: string; depts: Map<number, Num[]> }>();
+    // распределение ответов по каждому опроснику
+    const qAns = new Map<number, { full: number; partial: number; none: number; na: number }>();
 
     for (const sub of subjects) {
       const dk = sub.session?.department?.id ?? 0;
@@ -117,6 +119,12 @@ export default {
       const depts = qByDept.get(qk)!.depts;
       if (!depts.has(dk)) depts.set(dk, []);
       depts.get(dk)!.push(sub.scorePercent);
+
+      if (!qAns.has(qk)) qAns.set(qk, { full: 0, partial: 0, none: 0, na: 0 });
+      const ac = qAns.get(qk)!;
+      for (const v of Object.values((sub.answers || {}) as Record<string, string>)) {
+        if (ac[v as keyof typeof ac] !== undefined) ac[v as keyof typeof ac]++;
+      }
     }
 
     // по отделам: средний % по сотрудникам + охват
@@ -149,12 +157,18 @@ export default {
     // по опросникам: среднее по отделам этого опросника
     const byQuestionnaire = [...qByDept.entries()].map(([qk, q]) => {
       const deptAvgs = [...q.depts.values()].map((arr) => avg(arr));
+      const a = qAns.get(qk) ?? { full: 0, partial: 0, none: 0, na: 0 };
+      const appl = a.full + a.partial + a.none;
       return {
         id: qk || undefined,
         name: q.name,
         sessions: sessByQ.get(qk) ?? 0,
         departments: q.depts.size,
         avgPercent: avg(deptAvgs),
+        full: a.full,
+        partial: a.partial,
+        none: a.none,
+        problemPct: appl ? Math.round(((a.partial + a.none) / appl) * 1000) / 10 : 0,
       };
     });
 
