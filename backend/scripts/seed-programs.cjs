@@ -30,7 +30,7 @@ const QUALITY = [
       "Покажите, как вы обрабатываете руки (все 6 этапов с соблюдением последовательности)",
       "Пять моментов гигиены рук",
       "Внешний вид рук (подстриженные ногти, без лака, искусственных ногтей, украшений и часов)",
-      "Обработка рук при входе в отделение и выходе из него",
+      { t: "Обработка рук при входе в отделение и выходе из него", allowNa: true },
     ],
   },
   {
@@ -234,10 +234,12 @@ async function main() {
       let scoredN = 0;
       let inputN = 0;
       for (const c of q.criteria) {
-        const isInput = typeof c === "object" && c.input;
-        const text = isInput ? c.t : c;
+        const isObj = typeof c === "object";
+        const isInput = isObj && c.input;
+        const text = isObj ? c.t : c;
+        const allowNa = isObj ? !!c.allowNa : false;
         await app.db.query(C).create({
-          data: { text, kind: isInput ? "input" : "scored", order: i++, questionnaire: rec.id },
+          data: { text, kind: isInput ? "input" : "scored", allowNa, order: i++, questionnaire: rec.id },
         });
         if (isInput) inputN++; else scoredN++;
       }

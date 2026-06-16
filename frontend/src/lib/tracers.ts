@@ -18,6 +18,8 @@ export interface Criterion {
   id: number;
   text: string;
   kind?: CriterionKind;
+  /** Разрешить вариант «Не требуется» (исключается из %) для этого критерия. */
+  allowNa?: boolean;
   order: number;
 }
 

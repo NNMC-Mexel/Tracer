@@ -430,7 +430,7 @@ export default function TracerFormPage() {
         <AnswerSelect
           compact
           scale={questionnaire.scale}
-          allowNa={questionnaire.allowNa}
+          allowNa={questionnaire.allowNa || c.allowNa}
           value={empAnswers[e.id]?.[c.id]}
           onChange={(v) =>
             setEmpAnswers((prev) => ({
@@ -627,7 +627,7 @@ export default function TracerFormPage() {
                     </Text>
                     <AnswerSelect
                       scale={questionnaire.scale}
-                      allowNa={questionnaire.allowNa}
+                      allowNa={questionnaire.allowNa || c.allowNa}
                       value={checklist[c.id]}
                       onChange={(v) => setChecklist((p) => ({ ...p, [c.id]: v }))}
                     />

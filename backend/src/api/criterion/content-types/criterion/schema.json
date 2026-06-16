@@ -22,6 +22,10 @@
       "required": true,
       "default": "scored"
     },
+    "allowNa": {
+      "type": "boolean",
+      "default": false
+    },
     "order": {
       "type": "integer",
       "default": 0

@@ -452,6 +452,7 @@ export interface ApiCriterionCriterion extends Struct.CollectionTypeSchema {
     draftAndPublish: false;
   };
   attributes: {
+    allowNa: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;

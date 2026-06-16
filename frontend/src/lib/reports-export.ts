@@ -13,10 +13,10 @@ function answerLabel(v: string | undefined, binary: boolean): string {
   if (v === "full") return binary ? "Да" : "Соответствует";
   if (v === "none") return binary ? "Нет" : "Не соответствует";
   if (v === "partial") return "Частично";
-  if (v === "na") return "Неприменимо";
+  if (v === "na") return "Не требуется";
   return "";
 }
-const ANS_SYM: Record<string, string> = { full: "+", partial: "±", none: "−", na: "Н/П" };
+const ANS_SYM: Record<string, string> = { full: "+", partial: "±", none: "−", na: "Н/Т" };
 
 interface Meta {
   title: string;
@@ -335,7 +335,7 @@ export async function exportSummaryPdf(summary: Summary, meta: Meta) {
         ["Частично", String(ac.partial), p(ac.partial)],
         ["Не соответствует", String(ac.none), p(ac.none)],
       ];
-      if (ac.na) rows.push(["Неприменим", String(ac.na), p(ac.na)]);
+      if (ac.na) rows.push(["Не требуется", String(ac.na), p(ac.na)]);
       content.push(
         ...block(
           "Распределение ответов",

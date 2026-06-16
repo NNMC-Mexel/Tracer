@@ -21,7 +21,7 @@ const QUESTIONNAIRES = [
       "Покажите, как вы обрабатываете руки (все 6 этапов с соблюдением последовательности)",
       "Пять моментов гигиены рук (перед контактом с пациентом; перед чистой/асептической процедурой; после ситуации с риском контакта с биожидкостями; после контакта с пациентом; после контакта с объектами окружения пациента)",
       "Внешний вид рук (подстриженные ногти, отсутствие лака, искусственных ногтей, украшений и часов)",
-      "Обработка рук при входе в отделение и выходе из него",
+      { t: "Обработка рук при входе в отделение и выходе из него", allowNa: true },
     ],
   },
   {
@@ -155,9 +155,11 @@ async function main() {
         },
       });
       let i = 1;
-      for (const text of q.criteria) {
+      for (const item of q.criteria) {
+        const text = typeof item === "string" ? item : item.t;
+        const allowNa = typeof item === "object" ? !!item.allowNa : false;
         await app.db.query(C).create({
-          data: { text, order: i++, questionnaire: rec.id },
+          data: { text, allowNa, order: i++, questionnaire: rec.id },
         });
       }
       console.log(`[seedQ] ${q.name} (${q.subjectType}) — критериев: ${q.criteria.length}`);

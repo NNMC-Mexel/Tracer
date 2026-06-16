@@ -24,7 +24,7 @@ function buildOpts(scale: Scale, allowNa?: boolean): Opt[] {
           { v: "partial", label: "Частично", icon: <MinusOutlined />, color: "#faad14" },
           { v: "none", label: "Не соответствует", icon: <CloseOutlined />, color: "#ff4d4f" },
         ];
-  if (allowNa) opts.push({ v: "na", label: "Неприменим", icon: <StopOutlined />, color: "#8c8c8c" });
+  if (allowNa) opts.push({ v: "na", label: "Не требуется", icon: <StopOutlined />, color: "#8c8c8c" });
   return opts;
 }
 

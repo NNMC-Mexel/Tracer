@@ -213,7 +213,7 @@ function AnswerBreakdown({ summary }: { summary: Summary }) {
     { label: "Соответствует", n: c.full, color: "#52c41a" },
     { label: "Частично", n: c.partial, color: "#faad14" },
     { label: "Не соответствует", n: c.none, color: "#ff4d4f" },
-    ...(c.na ? [{ label: "Неприменим", n: c.na, color: "#8c8c8c" }] : []),
+    ...(c.na ? [{ label: "Не требуется", n: c.na, color: "#8c8c8c" }] : []),
   ];
   return (
     <Card title="Распределение ответов" size="small">
@@ -834,7 +834,7 @@ function Journal({
             full: { s: "✓", c: "#52c41a" },
             partial: { s: "±", c: "#faad14" },
             none: { s: "✗", c: "#ff4d4f" },
-            na: { s: "Н/П", c: "#8c8c8c" },
+            na: { s: "Н/Т", c: "#8c8c8c" },
           };
           const allCrit = (detail.criteriaSnapshot ?? []).slice().sort((a, b) => a.order - b.order);
           const crit = allCrit.filter((c) => c.kind !== "input");
@@ -845,7 +845,7 @@ function Journal({
             v === "full" ? (isBin ? "Да" : "Соотв.")
             : v === "none" ? (isBin ? "Нет" : "Не соотв.")
             : v === "partial" ? "Частично"
-            : v === "na" ? "Неприменимо"
+            : v === "na" ? "Не требуется"
             : "";
           return (
             <div>
@@ -949,7 +949,7 @@ function Journal({
               )}
               <div style={{ marginTop: 6, fontSize: 12, color: "#888" }}>
                 {isBin ? "✓ да · ✗ нет" : "✓ соответствует · ± частично · ✗ не соответствует"}
-                {detail.questionnaire?.allowNa ? " · Н/П неприменимо" : ""}
+                {(detail.subjects ?? []).some((s) => Object.values(s.answers ?? {}).includes("na")) ? " · Н/Т не требуется" : ""}
               </div>
             </div>
           );

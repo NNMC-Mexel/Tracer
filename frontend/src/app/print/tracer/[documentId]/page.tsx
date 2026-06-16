@@ -10,12 +10,12 @@ import { getSessionDetail, type JournalRow } from "@/lib/reports";
 import { fillBlanks } from "@/lib/tracers";
 import { STRAPI_URL } from "@/lib/strapi";
 
-const ANS_SYMBOL: Record<string, string> = { full: "+", partial: "±", none: "−", na: "Н/П" };
+const ANS_SYMBOL: Record<string, string> = { full: "+", partial: "±", none: "−", na: "Н/Т" };
 function answerWord(v: string | undefined, binary: boolean): string {
   if (v === "full") return binary ? "Да" : "Соответствует";
   if (v === "none") return binary ? "Нет" : "Не соответствует";
   if (v === "partial") return "Частично";
-  if (v === "na") return "Неприменимо";
+  if (v === "na") return "Не требуется";
   return "";
 }
 
@@ -142,7 +142,7 @@ export default function TracerPrintPage() {
           </table>
           <div className="legend">
             Обозначения: {isBinary ? "+ да, − нет" : "+ соответствует, ± частично, − не соответствует"}
-            {data.questionnaire?.allowNa ? ", Н/П неприменимо" : ""}
+            {subjects.some((s) => Object.values(s.answers ?? {}).includes("na")) ? ", Н/Т не требуется" : ""}
           </div>
         </>
       ) : (
