@@ -22,7 +22,6 @@ import {
   Breadcrumb,
   Empty,
   Input,
-  Image,
   App,
 } from "antd";
 import { useRouter } from "next/navigation";
@@ -36,7 +35,6 @@ import {
   DeleteOutlined,
   PrinterOutlined,
   RightOutlined,
-  CameraOutlined,
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import dayjs, { type Dayjs } from "dayjs";
@@ -72,7 +70,6 @@ import {
   exportSessionExcel,
 } from "@/lib/reports-export";
 import { LEVEL_LABEL, listQuestionnaires, fillBlanks, type Questionnaire } from "@/lib/tracers";
-import { STRAPI_URL } from "@/lib/strapi";
 import { useAuth } from "@/lib/useAuth";
 
 const { Title, Text } = Typography;
@@ -723,14 +720,6 @@ function Journal({
     { title: "Опросник", key: "q", render: (_, r) => r.questionnaire?.name ?? "—" },
     { title: "Отдел", key: "d", render: (_, r) => r.department?.name ?? "—" },
     { title: "Аудитор", dataIndex: "auditorName", key: "a", width: 150 },
-    {
-      title: "Фото",
-      key: "photo",
-      width: 60,
-      align: "center",
-      render: (_, r) =>
-        r.photo?.url ? <CameraOutlined style={{ color: "#52c41a" }} /> : <Text type="secondary">—</Text>,
-    },
     { title: "%", dataIndex: "scorePercent", key: "p", width: 70, render: (v: number) => <b>{v}%</b> },
     {
       title: "Уровень",
@@ -874,17 +863,6 @@ function Journal({
                 <p style={{ marginTop: -6 }}>
                   <b>Примечание:</b> {detail.note}
                 </p>
-              ) : null}
-              {detail.photo?.url ? (
-                <div style={{ marginBottom: 12 }}>
-                  <Text strong>Фото проверки на месте:</Text>
-                  <br />
-                  <Image
-                    src={STRAPI_URL + detail.photo.url}
-                    alt="Фото проверки"
-                    style={{ maxHeight: 220, width: "auto", borderRadius: 8, marginTop: 4 }}
-                  />
-                </div>
               ) : null}
               <Space style={{ marginBottom: 12 }} wrap>
                 <Button

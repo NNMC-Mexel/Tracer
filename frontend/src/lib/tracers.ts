@@ -91,8 +91,6 @@ export interface SubmitTracerInput {
   mkspNumber?: string;
   /** Поля-вписки (kind=input): значения прочерков по каждому критерию: { критерийId: [v1, v2, ...] }. */
   inputs?: Record<number, string[]>;
-  /** id загруженного фото проверки на месте. */
-  photoId?: number;
   subjects: SubjectPayload[];
   participants?: ParticipantPayload[];
 }

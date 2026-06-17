@@ -8,7 +8,6 @@ import dayjs from "dayjs";
 import { useAuth } from "@/lib/useAuth";
 import { getSessionDetail, type JournalRow } from "@/lib/reports";
 import { fillBlanks } from "@/lib/tracers";
-import { STRAPI_URL } from "@/lib/strapi";
 
 const ANS_SYMBOL: Record<string, string> = { full: "+", partial: "±", none: "−", na: "Н/Т" };
 function answerWord(v: string | undefined, binary: boolean): string {
@@ -91,17 +90,6 @@ export default function TracerPrintPage() {
         <div><b>Итоговый результат:</b> {data.scorePercent}%</div>
         {data.note ? <div><b>Примечание:</b> {data.note}</div> : null}
       </div>
-
-      {data.photo?.url ? (
-        <div style={{ margin: "8px 0 14px" }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={STRAPI_URL + data.photo.url}
-            alt="Фото проверки на месте"
-            style={{ maxHeight: 220, maxWidth: "100%", border: "1px solid #000" }}
-          />
-        </div>
-      ) : null}
 
       {isEmployee ? (
         <>

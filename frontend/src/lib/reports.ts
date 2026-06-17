@@ -124,7 +124,6 @@ export interface JournalRow {
   scorePercent: number;
   complianceLevel: "high" | "medium" | "low";
   inputs?: Record<string, string[]>;
-  photo?: { url: string; formats?: { thumbnail?: { url: string }; small?: { url: string } } } | null;
   criteriaSnapshot?: { id: number; text: string; order: number; kind?: string; invert?: boolean }[];
   participants?: { employeeId?: number; fullName?: string; position?: string }[];
   department?: { id: number; name: string } | null;
@@ -168,7 +167,6 @@ export async function getJournal(
     qs.set("filters[questionnaire][program][id][$eq]", String(params.programId));
   qs.set("populate[0]", "department");
   qs.set("populate[1]", "questionnaire");
-  qs.set("populate[2]", "photo");
   qs.set("sort[0]", "date:desc");
   qs.set("pagination[page]", String(params.page ?? 1));
   qs.set("pagination[pageSize]", String(params.pageSize ?? 20));
@@ -180,7 +178,6 @@ export async function getSessionDetail(documentId: string): Promise<JournalRow> 
   const qs = new URLSearchParams();
   qs.set("populate[department]", "true");
   qs.set("populate[questionnaire]", "true");
-  qs.set("populate[photo]", "true");
   qs.set("populate[subjects][populate][employee][populate][department]", "true");
   const res = await strapiFetch<{ data: JournalRow }>(
     `/api/tracer-sessions/${documentId}?${qs.toString()}`,
