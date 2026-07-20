@@ -29,6 +29,9 @@ const QUESTIONNAIRES = [
     name: "Трейсер по вопросам инфекционного контроля в СП",
     subjectType: "department",
     order: 1,
+    // «Не требуется» доступно во ВСЕХ вопросах этого трейсера
+    // (некоторые пункты неприменимы к конкретному отделению).
+    allowNa: true,
     criteria: [
       "Журнал генеральных уборок",
       "Журнал кварцевания",
@@ -151,6 +154,7 @@ async function main() {
           name: q.name,
           subjectType: q.subjectType,
           order: q.order,
+          allowNa: !!q.allowNa,
           active: true,
         },
       });
