@@ -22,6 +22,7 @@ import {
   Breadcrumb,
   Empty,
   Input,
+  Segmented,
   App,
 } from "antd";
 import { useRouter } from "next/navigation";
@@ -53,13 +54,20 @@ import {
 import {
   getReportYears,
   getSummary,
+  getDynamics,
   getJournal,
   getSessionDetail,
   monthLabel,
   CATEGORY_LABEL,
+  TREND_META,
   type Summary,
   type JournalRow,
   type Heatmap,
+  type Dynamics,
+  type DynCritRow,
+  type DynDeptRow,
+  type DynEmpRow,
+  type Trend,
 } from "@/lib/reports";
 import { deleteTracer } from "@/lib/tracers";
 import {
@@ -68,6 +76,8 @@ import {
   exportJournalExcel,
   exportJournalPdf,
   exportSessionExcel,
+  exportDynamicsExcel,
+  exportDynamicsPdf,
 } from "@/lib/reports-export";
 import { LEVEL_LABEL, listQuestionnaires, fillBlanks, type Questionnaire } from "@/lib/tracers";
 import { useAuth } from "@/lib/useAuth";
@@ -144,6 +154,7 @@ export default function ReportsPage() {
       <Tabs
         items={[
           { key: "summary", label: "Сводка", children: <DrillDown from={from} to={to} periodLabel={periodLabel} programId={programId} ready={ready} /> },
+          { key: "dynamics", label: "Динамика", children: <DynamicsTab from={from} to={to} periodLabel={periodLabel} programId={programId} ready={ready} /> },
           { key: "journal", label: "Журнал", children: <Journal from={from} to={to} periodLabel={periodLabel} programId={programId} ready={ready} /> },
         ]}
       />
@@ -645,6 +656,353 @@ function LevelEmployees({ summary, department, scoped }: { summary: Summary; dep
         />
       </Card>
     </>
+  );
+}
+
+/** Мини-график тренда (одна серия, без легенды — строку называет её заголовок). */
+function Sparkline({ values, color }: { values: (number | null)[]; color: string }) {
+  const w = 60;
+  const h = 18;
+  const pad = 2;
+  const vals = values ?? [];
+  const n = vals.length;
+  const pts = vals
+    .map((v, i) => ({ v, i }))
+    .filter((p): p is { v: number; i: number } => p.v != null);
+  if (pts.length === 0) return <span style={{ color: "#ccc" }}>—</span>;
+  const x = (i: number) => pad + (n <= 1 ? (w - 2 * pad) / 2 : (i / (n - 1)) * (w - 2 * pad));
+  const y = (v: number) => h - pad - (v / 100) * (h - 2 * pad);
+  const d = pts.map((p, k) => `${k === 0 ? "M" : "L"}${x(p.i).toFixed(1)},${y(p.v).toFixed(1)}`).join(" ");
+  const last = pts[pts.length - 1];
+  return (
+    <svg width={w} height={h} style={{ display: "block", flex: "0 0 auto" }} aria-hidden>
+      <path d={d} fill="none" stroke={color} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={x(last.i)} cy={y(last.v)} r={2.2} fill={color} />
+    </svg>
+  );
+}
+
+const TREND_RANK: Record<string, number> = { persistent: 0, worsening: 1, stable: 2, improving: 3, insufficient: 4 };
+
+/** Динамика по месяцам: пункт×месяц, отдел×месяц, сотрудник×месяц — с трендом и спарклайном. */
+function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string; to: string; periodLabel: string; programId?: number; ready: boolean }) {
+  const { message } = App.useApp();
+  const [questionnaires, setQuestionnaires] = useState<Questionnaire[]>([]);
+  const [qId, setQId] = useState<number | undefined>();
+  const [deptId, setDeptId] = useState<number | undefined>();
+  const [deptOptions, setDeptOptions] = useState<{ value: number; label: string }[]>([]);
+  const [data, setData] = useState<Dynamics | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState<"criteria" | "employee">("criteria");
+  const [sortMode, setSortMode] = useState<"order" | "problem">("order");
+
+  const selectedQ = questionnaires.find((q) => q.id === qId);
+  const canEmployee = selectedQ?.subjectType === "employee";
+  const effectiveMode = canEmployee ? mode : "criteria";
+
+  useEffect(() => {
+    if (!ready) return;
+    listQuestionnaires(programId)
+      .then((qs) => {
+        setQuestionnaires(qs);
+        setQId((prev) => prev ?? qs[0]?.id);
+      })
+      .catch(() => {});
+  }, [ready, programId]);
+
+  useEffect(() => {
+    if (!ready || !qId) return;
+    const controller = new AbortController();
+    queueMicrotask(() => {
+      if (!controller.signal.aborted) {
+        setLoading(true);
+        setData(null);
+      }
+    });
+    getDynamics({ from, to, questionnaireId: qId, departmentId: deptId, programId }, controller.signal)
+      .then((d) => {
+        setData(d);
+        if (!deptId) setDeptOptions(d.departments.filter((x) => x.departmentId).map((x) => ({ value: x.departmentId!, label: x.name })));
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) {
+          console.error(error);
+          message.error("Не удалось загрузить динамику");
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [ready, qId, deptId, from, to, programId, message]);
+
+  const months = data?.months ?? [];
+  const deptName = deptOptions.find((o) => o.value === deptId)?.label;
+  const title = `Динамика — ${selectedQ?.name ?? ""}${deptName ? " — " + deptName : ""}`;
+
+  const cColor = (p: number | null) => (p == null ? "#f5f5f5" : p >= 85 ? "#52c41a" : p >= 60 ? "#faad14" : "#ff4d4f");
+  const box = (p: number | null) => (
+    <div style={{ background: cColor(p), color: p == null ? "#bbb" : "#fff", borderRadius: 3, fontSize: 11, padding: "3px 0", fontWeight: 600, textAlign: "center" }}>
+      {p == null ? "—" : Math.round(p)}
+    </div>
+  );
+  const trendCell = (values: (number | null)[], trend: Trend, first: number | null, last: number | null) => {
+    const t = TREND_META[trend];
+    return (
+      <Space size={8} align="center">
+        <Sparkline values={values} color={t.color} />
+        <div style={{ lineHeight: 1.25 }}>
+          <Tag color={t.color} style={{ marginInlineEnd: 0 }}>{t.icon} {t.label}</Tag>
+          <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
+            {first == null ? "—" : Math.round(first)} → {last == null ? "—" : Math.round(last)}
+          </div>
+        </div>
+      </Space>
+    );
+  };
+  const pctTip = (c: { month: string; avgPercent: number | null; sessions: number }) =>
+    `${monthLabel(c.month)}: ${c.avgPercent == null ? "нет проверок" : Math.round(c.avgPercent) + "%"}${c.sessions ? ` · ${c.sessions} пров.` : ""}`;
+
+  const monthHead = months.map((m) => ({
+    title: <Tooltip title={m}><span>{monthLabel(m)}</span></Tooltip>,
+    key: m,
+    align: "center" as const,
+    width: 50,
+  }));
+
+  const critColumns: ColumnsType<DynCritRow> = [
+    {
+      title: "Вопрос",
+      key: "text",
+      fixed: "left",
+      width: 300,
+      render: (_, r, i) => {
+        const txt = r.text ?? "";
+        return (
+          <Tooltip title={txt}>
+            <span style={{ fontSize: 12 }}>
+              <b>{i + 1}.</b> {txt.length > 46 ? txt.slice(0, 44) + "…" : txt}
+            </span>
+          </Tooltip>
+        );
+      },
+    },
+    ...monthHead.map((h) => ({
+      ...h,
+      render: (_: unknown, r: DynCritRow) => {
+        const c = r.cells.find((x) => x.month === h.key);
+        if (!c) return box(null);
+        return (
+          <Tooltip title={`${monthLabel(c.month)}: ✓${c.full} ±${c.partial} ✗${c.none}${c.na ? ` · Н/Т ${c.na}` : ""}`}>{box(c.compliancePct)}</Tooltip>
+        );
+      },
+    })),
+    { title: "Тренд · было→стало", key: "trend", fixed: "right", width: 240, render: (_, r) => trendCell(r.cells.map((c) => c.compliancePct), r.trend, r.firstPct, r.lastPct) },
+  ];
+
+  const empColumns: ColumnsType<DynEmpRow> = [
+    {
+      title: "Сотрудник",
+      key: "name",
+      fixed: "left",
+      width: 220,
+      render: (_, r) => (
+        <div>
+          <div style={{ fontSize: 12 }}>{r.name}</div>
+          {r.position ? <div style={{ fontSize: 11, color: "#999" }}>{r.position}</div> : null}
+        </div>
+      ),
+    },
+    ...monthHead.map((h) => ({
+      ...h,
+      render: (_: unknown, r: DynEmpRow) => {
+        const c = r.cells.find((x) => x.month === h.key);
+        if (!c) return box(null);
+        return <Tooltip title={pctTip(c)}>{box(c.avgPercent)}</Tooltip>;
+      },
+    })),
+    { title: "Тренд · было→стало", key: "trend", fixed: "right", width: 240, render: (_, r) => trendCell(r.cells.map((c) => c.avgPercent), r.trend, r.firstPct, r.lastPct) },
+  ];
+
+  const deptColumns: ColumnsType<DynDeptRow> = [
+    { title: "Отдел", dataIndex: "name", key: "name", fixed: "left", width: 200, render: (t: string) => <span style={{ fontSize: 12 }}>{t}</span> },
+    ...monthHead.map((h) => ({
+      ...h,
+      render: (_: unknown, r: DynDeptRow) => {
+        const c = r.cells.find((x) => x.month === h.key);
+        if (!c) return box(null);
+        return <Tooltip title={pctTip(c)}>{box(c.avgPercent)}</Tooltip>;
+      },
+    })),
+    { title: "Тренд · было→стало", key: "trend", fixed: "right", width: 240, render: (_, r) => trendCell(r.cells.map((c) => c.avgPercent), r.trend, r.firstPct, r.lastPct) },
+  ];
+
+  const critRows =
+    sortMode === "problem"
+      ? [...(data?.rows ?? [])].sort((a, b) => TREND_RANK[a.trend] - TREND_RANK[b.trend] || (a.lastPct ?? 101) - (b.lastPct ?? 101))
+      : data?.rows ?? [];
+
+  const statsSet: (DynCritRow | DynEmpRow)[] = effectiveMode === "employee" ? data?.employees ?? [] : data?.rows ?? [];
+  const cnt = (t: Trend) => statsSet.filter((r) => r.trend === t).length;
+
+  async function doExcel() {
+    if (!data) return;
+    try {
+      await exportDynamicsExcel(data, { title, period: periodLabel });
+    } catch {
+      message.error("Ошибка экспорта в Excel");
+    }
+  }
+  async function doPdf() {
+    if (!data) return;
+    try {
+      await exportDynamicsPdf(data, { title, period: periodLabel }, effectiveMode);
+    } catch {
+      message.error("Ошибка экспорта в PDF");
+    }
+  }
+
+  const empty = !data || (effectiveMode === "employee" ? (data.employees?.length ?? 0) === 0 : (data.rows?.length ?? 0) === 0);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <Card size="small">
+        <Space wrap size="middle" align="end" style={{ width: "100%", justifyContent: "space-between" }}>
+          <Space wrap size="middle" align="end">
+            <div>
+              <Text strong>Трейсер</Text>
+              <br />
+              <Select
+                style={{ width: 320, marginTop: 4 }}
+                showSearch
+                optionFilterProp="label"
+                placeholder="Выберите трейсер"
+                value={qId}
+                onChange={(v) => { setQId(v); setDeptId(undefined); setDeptOptions([]); }}
+                options={questionnaires.map((q) => ({ value: q.id, label: q.name }))}
+              />
+            </div>
+            <div>
+              <Text strong>Отдел</Text>
+              <br />
+              <Select
+                style={{ width: 240, marginTop: 4 }}
+                allowClear
+                showSearch
+                optionFilterProp="label"
+                placeholder="Все отделы"
+                value={deptId}
+                onChange={(v) => setDeptId(v)}
+                options={deptOptions}
+              />
+            </div>
+            {canEmployee && (
+              <div>
+                <Text strong>Разрез</Text>
+                <br />
+                <Segmented
+                  style={{ marginTop: 4 }}
+                  value={effectiveMode}
+                  onChange={(v) => setMode(v as "criteria" | "employee")}
+                  options={[
+                    { label: "По пунктам", value: "criteria" },
+                    { label: "По сотрудникам", value: "employee" },
+                  ]}
+                />
+              </div>
+            )}
+          </Space>
+          <Space>
+            <Button icon={<FileExcelOutlined />} onClick={doExcel} disabled={!data || loading}>Excel</Button>
+            <Button icon={<FilePdfOutlined />} onClick={doPdf} disabled={!data || loading}>PDF</Button>
+          </Space>
+        </Space>
+        {months.length < 2 && (
+          <div style={{ marginTop: 10, color: "#d48806", fontSize: 12 }}>
+            Для динамики выберите период пошире — кнопкой «Год» вверху. Сейчас в периоде {months.length === 1 ? "один месяц" : "нет месяцев с данными"}.
+          </div>
+        )}
+      </Card>
+
+      {loading ? (
+        <Spin />
+      ) : empty ? (
+        <Empty description={effectiveMode === "employee" ? "Нет проверенных сотрудников за период" : "Нет данных за выбранный период"} />
+      ) : (
+        <>
+          <Card size="small">
+            <Space size="large" wrap>
+              <Statistic title="Держится нарушение" value={cnt("persistent")} valueStyle={{ color: "#cf1322" }} />
+              <Statistic title="Исправляются" value={cnt("improving")} valueStyle={{ color: "#52c41a" }} />
+              <Statistic title="Ухудшение" value={cnt("worsening")} valueStyle={{ color: "#ff4d4f" }} />
+            </Space>
+          </Card>
+
+          {effectiveMode === "employee" ? (
+            <Card size="small" title={`Динамика по сотрудникам${deptName ? " — " + deptName : ""} (худшие сверху)`}>
+              <Table<DynEmpRow>
+                rowKey="employeeId"
+                size="small"
+                pagination={{ pageSize: 50, showSizeChanger: true }}
+                scroll={{ x: "max-content" }}
+                columns={empColumns}
+                dataSource={data!.employees ?? []}
+              />
+              <div style={{ fontSize: 11, color: "#999", marginTop: 6 }}>
+                В ячейках — средний % сотрудника за месяц. Красная строка месяцами = человек не исправляется; переход 🟥→🟩 = исправился.
+              </div>
+            </Card>
+          ) : (
+            <>
+              <Card
+                size="small"
+                title={`Динамика по пунктам${deptName ? " — " + deptName : " (все отделы)"}`}
+                extra={
+                  <Segmented
+                    size="small"
+                    value={sortMode}
+                    onChange={(v) => setSortMode(v as "order" | "problem")}
+                    options={[
+                      { label: "По опроснику", value: "order" },
+                      { label: "Проблемные сверху", value: "problem" },
+                    ]}
+                  />
+                }
+              >
+                <Table<DynCritRow>
+                  rowKey="critId"
+                  size="small"
+                  pagination={false}
+                  scroll={{ x: "max-content" }}
+                  columns={critColumns}
+                  dataSource={critRows}
+                />
+                <div style={{ fontSize: 11, color: "#999", marginTop: 6 }}>
+                  В ячейках — % соответствия за месяц. 🟩 ≥ 85 · 🟨 60–84 · 🟥 &lt; 60 · «—» нет проверок.
+                  Красная строка месяцами = нарушение держится; переход 🟥→🟩 = исправились.
+                </div>
+              </Card>
+
+              {!deptId && (data!.departments?.length ?? 0) > 1 && (
+                <Card size="small" title="Динамика по отделам (средний % за месяц)">
+                  <Table<DynDeptRow>
+                    rowKey={(row) => row.departmentId ? `id:${row.departmentId}` : `snapshot:${row.name}`}
+                    size="small"
+                    pagination={false}
+                    scroll={{ x: "max-content" }}
+                    columns={deptColumns}
+                    dataSource={data!.departments ?? []}
+                  />
+                  <div style={{ fontSize: 11, color: "#999", marginTop: 6 }}>
+                    Выберите отдел выше, чтобы увидеть, какие именно пункты у него не выполняются.
+                  </div>
+                </Card>
+              )}
+            </>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 

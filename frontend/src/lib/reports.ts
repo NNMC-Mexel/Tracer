@@ -77,6 +77,66 @@ export interface Summary {
   monthly: MonthStat[];
 }
 
+// --- Динамика по месяцам (пункт×месяц, отдел×месяц) ---------------------------
+
+export type Trend = "improving" | "worsening" | "persistent" | "stable" | "insufficient";
+
+export interface DynCritCell {
+  month: string;
+  compliancePct: number | null;
+  full: number;
+  partial: number;
+  none: number;
+  na: number;
+  total: number;
+}
+export interface DynCritRow {
+  critId: number;
+  text: string;
+  order: number;
+  cells: DynCritCell[];
+  trend: Trend;
+  firstPct: number | null;
+  lastPct: number | null;
+}
+export interface DynDeptCell {
+  month: string;
+  avgPercent: number | null;
+  sessions: number;
+}
+export interface DynDeptRow {
+  departmentId?: number;
+  name: string;
+  cells: DynDeptCell[];
+  trend: Trend;
+  firstPct: number | null;
+  lastPct: number | null;
+}
+export interface DynEmpRow {
+  employeeId: number;
+  name: string;
+  position: string;
+  cells: DynDeptCell[];
+  trend: Trend;
+  firstPct: number | null;
+  lastPct: number | null;
+}
+export interface Dynamics {
+  months: string[];
+  criteria: { id: number; text: string; order: number }[];
+  rows: DynCritRow[];
+  departments: DynDeptRow[];
+  employees: DynEmpRow[];
+}
+
+export const TREND_META: Record<Trend, { label: string; color: string; icon: string }> = {
+  improving: { label: "Исправляются", color: "#52c41a", icon: "↑" },
+  worsening: { label: "Ухудшение", color: "#ff4d4f", icon: "↓" },
+  persistent: { label: "Держится нарушение", color: "#cf1322", icon: "⚠" },
+  stable: { label: "Стабильно", color: "#8c8c8c", icon: "→" },
+  insufficient: { label: "Мало данных", color: "#bfbfbf", icon: "·" },
+};
+
 export const CATEGORY_LABEL: Record<string, string> = {
   ВМР: "ВМР — врачи",
   СМР: "СМР — средний медперсонал",
@@ -108,6 +168,17 @@ export async function getSummary(params: SummaryParams): Promise<Summary> {
   if (params.questionnaireId) qs.set("questionnaireId", String(params.questionnaireId));
   if (params.programId) qs.set("programId", String(params.programId));
   const res = await strapiFetch<{ data: Summary }>(`/api/reports/summary?${qs.toString()}`);
+  return res.data;
+}
+
+export async function getDynamics(params: SummaryParams, signal?: AbortSignal): Promise<Dynamics> {
+  const qs = new URLSearchParams();
+  if (params.from) qs.set("from", params.from);
+  if (params.to) qs.set("to", params.to);
+  if (params.departmentId) qs.set("departmentId", String(params.departmentId));
+  if (params.questionnaireId) qs.set("questionnaireId", String(params.questionnaireId));
+  if (params.programId) qs.set("programId", String(params.programId));
+  const res = await strapiFetch<{ data: Dynamics }>(`/api/reports/dynamics?${qs.toString()}`, { signal });
   return res.data;
 }
 

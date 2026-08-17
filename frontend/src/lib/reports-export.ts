@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { Summary, JournalRow } from "./reports";
+import type { Summary, JournalRow, Dynamics } from "./reports";
+import { monthLabel, TREND_META } from "./reports";
 import { fillBlanks } from "./tracers";
 
 const LEVELS: Record<string, string> = {
@@ -180,6 +181,140 @@ export async function exportSessionExcel(detail: JournalRow) {
 
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), "Трейсер");
   XLSX.writeFile(wb, `Трейсер_${(detail.date ?? "").replace(/-/g, "")}.xlsx`);
+}
+
+// --- Динамика (пункт×месяц / отдел×месяц / сотрудник×месяц) -------------------
+
+/** Excel динамики: листы «По пунктам», «По отделам», «По сотрудникам». */
+export async function exportDynamicsExcel(dyn: Dynamics, meta: Meta) {
+  const XLSX = await import("xlsx");
+  const wb = XLSX.utils.book_new();
+  const mh = dyn.months.map((m) => monthLabel(m));
+  const num = (v: number | null) => (v == null ? "" : v);
+
+  const info = XLSX.utils.aoa_to_sheet([
+    ["Отчёт", meta.title],
+    ["Период", meta.period],
+    ["Сформировано", new Date().toLocaleString("ru-RU")],
+  ]);
+  XLSX.utils.book_append_sheet(wb, info, "Параметры");
+
+  const crit: (string | number)[][] = [
+    ["Вопрос", ...mh, "Тренд", "было %", "стало %"],
+    ...dyn.rows.map((r) => [
+      r.text,
+      ...r.cells.map((c) => num(c.compliancePct)),
+      TREND_META[r.trend].label,
+      num(r.firstPct),
+      num(r.lastPct),
+    ]),
+  ];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(crit), "По пунктам");
+
+  if (dyn.departments.length) {
+    const dep: (string | number)[][] = [
+      ["Отдел", ...mh, "Тренд", "было %", "стало %"],
+      ...dyn.departments.map((d) => [
+        d.name,
+        ...d.cells.map((c) => num(c.avgPercent)),
+        TREND_META[d.trend].label,
+        num(d.firstPct),
+        num(d.lastPct),
+      ]),
+    ];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dep), "По отделам");
+  }
+
+  if (dyn.employees.length) {
+    const emp: (string | number)[][] = [
+      ["ФИО", "Должность", ...mh, "Тренд", "было %", "стало %"],
+      ...dyn.employees.map((e) => [
+        e.name,
+        e.position,
+        ...e.cells.map((c) => num(c.avgPercent)),
+        TREND_META[e.trend].label,
+        num(e.firstPct),
+        num(e.lastPct),
+      ]),
+    ];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(emp), "По сотрудникам");
+  }
+
+  XLSX.writeFile(wb, `Динамика_${meta.period}.xlsx`);
+}
+
+/** PDF динамики: тепловая таблица по текущему разрезу (пункты / сотрудники). */
+export async function exportDynamicsPdf(dyn: Dynamics, meta: Meta, mode: "criteria" | "employee") {
+  const pdfMake = await getPdfMake();
+  const ACCENT = "#1677ff";
+  const fill = (p: number | null) => (p == null ? null : p >= 85 ? "#e6ffed" : p >= 60 ? "#fffbe6" : "#fff1f0");
+  const ink = (p: number | null) => (p == null ? "#bbb" : p >= 85 ? "#389e0d" : p >= 60 ? "#d48806" : "#cf1322");
+  const mh = dyn.months.map((m) => monthLabel(m));
+  const monthWidths = dyn.months.map(() => "auto");
+  const th = (t: string, align: "left" | "center" = "center") => ({ text: t, bold: true, color: "white", fontSize: 8, alignment: align });
+  const pcell = (p: number | null) => ({
+    text: p == null ? "—" : String(Math.round(p)),
+    alignment: "center" as const,
+    color: ink(p),
+    fillColor: fill(p),
+    bold: true,
+    fontSize: 8,
+  });
+
+  const empMode = mode === "employee" && dyn.employees.length > 0;
+
+  const body: any[][] = empMode
+    ? [
+        [th("ФИО", "left"), th("Должность", "left"), ...mh.map((m) => th(m)), th("Тренд")],
+        ...dyn.employees.map((e) => [
+          { text: e.name, fontSize: 8 },
+          { text: e.position, fontSize: 7, color: "#666" },
+          ...e.cells.map((c) => pcell(c.avgPercent)),
+          { text: TREND_META[e.trend].label, fontSize: 7, alignment: "center" },
+        ]),
+      ]
+    : [
+        [th("Вопрос", "left"), ...mh.map((m) => th(m)), th("Тренд")],
+        ...dyn.rows.map((r, i) => [
+          { text: `${i + 1}. ${r.text}`, fontSize: 8 },
+          ...r.cells.map((c) => pcell(c.compliancePct)),
+          { text: TREND_META[r.trend].label, fontSize: 7, alignment: "center" },
+        ]),
+      ];
+
+  const widths = empMode
+    ? ["*", "auto", ...monthWidths, "auto"]
+    : ["*", ...monthWidths, "auto"];
+
+  const doc = {
+    pageOrientation: "landscape" as const,
+    pageMargins: [24, 26, 24, 30] as [number, number, number, number],
+    content: [
+      { text: meta.title, fontSize: 15, bold: true, margin: [0, 0, 0, 2] },
+      { text: `Период: ${meta.period}${empMode ? " · разрез по сотрудникам" : " · разрез по пунктам"}`, color: "#888", margin: [0, 0, 0, 8] },
+      {
+        table: { headerRows: 1, widths, body },
+        layout: {
+          fillColor: (rowIndex: number) => (rowIndex === 0 ? ACCENT : null),
+          hLineWidth: () => 0.5,
+          vLineWidth: () => 0.5,
+          hLineColor: () => "#e0e0e0",
+          vLineColor: () => "#e0e0e0",
+          paddingTop: () => 3,
+          paddingBottom: () => 3,
+        },
+      },
+      {
+        text: "В ячейках — % соответствия за месяц. Зелёный ≥ 85 · жёлтый 60–84 · красный < 60 · «—» проверок не было.",
+        fontSize: 7,
+        color: "#999",
+        margin: [0, 8, 0, 0],
+      },
+    ],
+    footer: (page: number, count: number) => ({ text: `Стр. ${page} из ${count}`, alignment: "center", fontSize: 8, color: "#999", margin: [0, 8, 0, 0] }),
+    defaultStyle: { fontSize: 8 },
+  };
+  pdfMake.createPdf(doc).download(`Динамика_${meta.period}.pdf`);
 }
 
 /** PDF журнала трейсеров (список за период). */

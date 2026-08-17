@@ -107,6 +107,10 @@ export async function login(
   identifier: string,
   password: string,
 ): Promise<AuthResult> {
+  // Сбрасываем возможный устаревший токен: иначе strapiFetch прикрепит его
+  // (Authorization: Bearer …) к запросу логина, и Strapi отклонит с 401
+  // ещё до проверки пароля — войти станет невозможно.
+  logout();
   const auth = await strapiFetch<AuthResult>("/api/auth/local", {
     method: "POST",
     body: JSON.stringify({ identifier, password }),

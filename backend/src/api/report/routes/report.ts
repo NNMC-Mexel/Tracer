@@ -12,5 +12,11 @@ export default {
       handler: "report.summary",
       config: { policies: [] },
     },
+    {
+      method: "GET",
+      path: "/reports/dynamics",
+      handler: "report.dynamics",
+      config: { policies: [] },
+    },
   ],
 };
