@@ -46,6 +46,7 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
+  ReferenceLine,
   Tooltip as RTooltip,
   ResponsiveContainer,
   Cell,
@@ -717,6 +718,9 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
   const [deptId, setDeptId] = useState<number | undefined>();
   const [deptOptions, setDeptOptions] = useState<{ value: number; label: string }[]>([]);
   const [data, setData] = useState<Dynamics | null>(null);
+  const [overview, setOverview] = useState<Summary | null>(null);
+  const [previousOverview, setPreviousOverview] = useState<Summary | null>(null);
+  const [overviewLoading, setOverviewLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<"criteria" | "employee">("criteria");
   const [sortMode, setSortMode] = useState<"order" | "problem">("order");
@@ -730,10 +734,36 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
     listQuestionnaires(programId)
       .then((qs) => {
         setQuestionnaires(qs);
-        setQId((prev) => prev ?? qs[0]?.id);
       })
       .catch(() => {});
   }, [ready, programId]);
+
+  useEffect(() => {
+    if (!ready) return;
+    let active = true;
+    queueMicrotask(() => {
+      if (active) setOverviewLoading(true);
+    });
+    const days = dayjs(to).diff(dayjs(from), "day") + 1;
+    const previousTo = dayjs(from).subtract(1, "day");
+    const previousFrom = previousTo.subtract(days - 1, "day");
+    Promise.all([
+      getSummary({ from, to, programId }),
+      getSummary({ from: previousFrom.format("YYYY-MM-DD"), to: previousTo.format("YYYY-MM-DD"), programId }),
+    ])
+      .then(([current, previous]) => {
+        if (!active) return;
+        setOverview(current);
+        setPreviousOverview(previous);
+      })
+      .catch(() => {
+        if (!active) return;
+        setOverview(null);
+        setPreviousOverview(null);
+      })
+      .finally(() => { if (active) setOverviewLoading(false); });
+    return () => { active = false; };
+  }, [ready, from, to, programId]);
 
   useEffect(() => {
     if (!ready || !qId) return;
@@ -940,14 +970,15 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
         <Space wrap size="middle" align="end" style={{ width: "100%", justifyContent: "space-between" }}>
           <Space wrap size="middle" align="end">
             <div>
-              <span className="report-filter-label">Трейсер</span>
+              <span className="report-filter-label">Трейсер <Text type="danger">*</Text></span>
               <Select
                 style={{ width: 320, marginTop: 4 }}
                 showSearch
                 optionFilterProp="label"
                 placeholder="Выберите трейсер"
                 value={qId}
-                onChange={(v) => { setQId(v); setDeptId(undefined); setDeptOptions([]); }}
+                allowClear
+                onChange={(v) => { setQId(v); setDeptId(undefined); setDeptOptions([]); setData(null); }}
                 options={questionnaires.map((q) => ({ value: q.id, label: q.name }))}
               />
             </div>
@@ -960,6 +991,7 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
                 optionFilterProp="label"
                 placeholder="Все отделы"
                 value={deptId}
+                disabled={!qId}
                 onChange={(v) => setDeptId(v)}
                 options={deptOptions}
               />
@@ -970,6 +1002,7 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
                 <Segmented
                   style={{ marginTop: 4 }}
                   value={effectiveMode}
+                  disabled={!qId}
                   onChange={(v) => setMode(v as "criteria" | "employee")}
                   options={[
                     { label: "По пунктам", value: "criteria" },
@@ -980,23 +1013,39 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
             )}
           </Space>
           <Space>
-            <Button icon={<FileExcelOutlined />} onClick={doExcel} disabled={!data || loading}>Excel</Button>
-            <Button icon={<FilePdfOutlined />} onClick={doPdf} disabled={!data || loading}>PDF</Button>
+            <Button icon={<FileExcelOutlined />} onClick={doExcel} disabled={!qId || !data || loading}>Excel</Button>
+            <Button icon={<FilePdfOutlined />} onClick={doPdf} disabled={!qId || !data || loading}>PDF</Button>
           </Space>
         </Space>
-        {months.length < 2 && (
+        {qId && data && months.length < 2 && (
           <div style={{ marginTop: 10, color: "#d48806", fontSize: 12 }}>
             Для динамики выберите период пошире — кнопкой «Год» вверху. Сейчас в периоде {months.length === 1 ? "один месяц" : "нет месяцев с данными"}.
           </div>
         )}
       </Card>
 
-      {loading ? (
+      {!qId ? (
+        <DynamicsOverview
+          summary={overview}
+          previousSummary={previousOverview}
+          loading={overviewLoading}
+          periodLabel={periodLabel}
+          onPick={(id) => { setQId(id); setDeptId(undefined); setDeptOptions([]); setData(null); }}
+        />
+      ) : loading ? (
         <Spin />
       ) : empty ? (
         <Empty description={effectiveMode === "employee" ? "Нет проверенных сотрудников за период" : "Нет данных за выбранный период"} />
       ) : (
         <>
+          <Card size="small" className="report-scope-card">
+            <Space wrap size={[8, 8]}>
+              <Text strong>Сейчас показаны данные:</Text>
+              <Tag color="cyan">Трейсер: {selectedQ?.name}</Tag>
+              <Tag color={deptName ? "blue" : "default"}>Отдел: {deptName ?? "все отделы"}</Tag>
+              <Tag>Период: {periodLabel}</Tag>
+            </Space>
+          </Card>
           {deptId && (
             <Card size="small" className="report-toolbar">
               <Space wrap style={{ width: "100%", justifyContent: "space-between" }}>
@@ -1094,6 +1143,129 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
         </>
       )}
     </div>
+  );
+}
+
+function DynamicsOverview({
+  summary,
+  previousSummary,
+  loading,
+  periodLabel,
+  onPick,
+}: {
+  summary: Summary | null;
+  previousSummary: Summary | null;
+  loading: boolean;
+  periodLabel: string;
+  onPick: (id: number) => void;
+}) {
+  if (loading) return <Spin />;
+  const previousById = new Map((previousSummary?.byQuestionnaire ?? []).map((row) => [row.id, row]));
+  const rows = (summary?.byQuestionnaire ?? [])
+    .filter((row) => row.id)
+    .map((row) => {
+      const previous = previousById.get(row.id);
+      return {
+        ...row,
+        delta: previous ? Math.round((row.avgPercent - previous.avgPercent) * 10) / 10 : null,
+        status: row.sessions < 2 ? "insufficient" : row.avgPercent >= 85 ? "target" : row.avgPercent >= 60 ? "attention" : "critical",
+      };
+    })
+    .sort((a, b) => a.avgPercent - b.avgPercent || b.sessions - a.sessions);
+  if (rows.length === 0) {
+    return <Empty description="За выбранный период нет проведённых трейсеров" />;
+  }
+  const chartData = rows.map((row) => ({
+    ...row,
+    chartName: row.name.length > 42 ? `${row.name.slice(0, 40)}…` : row.name,
+    "Средний результат": row.avgPercent,
+  }));
+  return (
+    <>
+      <div className="report-overview-heading">
+        <div>
+          <div className="report-eyebrow">Общая картина</div>
+          <Title level={3} style={{ margin: "2px 0 4px" }}>Где требуется внимание</Title>
+          <Text type="secondary">Все трейcеры за период {periodLabel}. Сначала показаны наиболее слабые результаты.</Text>
+        </div>
+        <Space wrap>
+          <Tag color="green">Цель ≥ 85%</Tag>
+          <Tag>Сравнение с предыдущим равным периодом</Tag>
+        </Space>
+      </div>
+
+      <Row gutter={[12, 12]}>
+        <Col xs={12} xl={6}><Card className="report-metric-card"><Statistic title="Проведено проверок" value={summary?.kpi.sessions ?? 0} /></Card></Col>
+        <Col xs={12} xl={6}><Card className="report-metric-card"><Statistic title="Трейсеров с данными" value={rows.length} /></Card></Col>
+        <Col xs={12} xl={6}><Card className="report-metric-card"><Statistic title="Ниже цели" value={rows.filter((row) => row.status === "attention" || row.status === "critical").length} valueStyle={{ color: "#c53030" }} /></Card></Col>
+        <Col xs={12} xl={6}><Card className="report-metric-card"><Statistic title="Мало данных" value={rows.filter((row) => row.status === "insufficient").length} /></Card></Col>
+      </Row>
+
+      <Card className="report-section-card report-overview-card" title="Рейтинг трейсеров" extra={<Text type="secondary">Нажмите для детализации</Text>}>
+        <Text type="secondary">
+          Длина столбца — средний результат. Пунктир — целевой уровень. Количество проверок и изменение показаны в таблице ниже.
+        </Text>
+        <div style={{ marginTop: 20 }}>
+        <ResponsiveContainer width="100%" height={Math.max(260, chartData.length * 44)}>
+          <BarChart layout="vertical" data={chartData} margin={{ left: 12, right: 36 }}>
+            <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+            <XAxis type="number" domain={[0, 100]} unit="%" />
+            <YAxis type="category" dataKey="chartName" width={250} tick={{ fontSize: 11 }} />
+            <RTooltip formatter={(value) => [`${value}%`, "Средний результат"]} />
+            <ReferenceLine x={85} stroke="#2f855a" strokeDasharray="5 4" label={{ value: "цель 85%", fill: "#2f855a", fontSize: 11 }} />
+            <Bar dataKey="Средний результат" radius={[0, 6, 6, 0]}>
+              {chartData.map((row) => (
+                <Cell
+                  key={row.id}
+                  fill={row.avgPercent >= 85 ? "#2f855a" : row.avgPercent >= 60 ? "#d69e2e" : "#c53030"}
+                  cursor="pointer"
+                  onClick={() => onPick(row.id!)}
+                />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      <Table
+        className="report-overview-table"
+        rowKey="id"
+        size="small"
+        pagination={false}
+        dataSource={rows}
+        onRow={(row) => ({ className: "report-clickable-row", onClick: () => onPick(row.id!) })}
+        columns={[
+          { title: "Трейсер", dataIndex: "name", key: "name", render: (name: string) => <span className="report-row-link">{name}</span> },
+          { title: "Проверок", dataIndex: "sessions", key: "sessions", width: 110 },
+          { title: "Средний результат", dataIndex: "avgPercent", key: "avgPercent", width: 220, render: (value: number) => <Progress percent={value} size="small" /> },
+          {
+            title: "К пред. периоду",
+            dataIndex: "delta",
+            key: "delta",
+            width: 140,
+            render: (value: number | null) => value == null ? <Text type="secondary">нет сравнения</Text> : (
+              <Text style={{ color: value > 0 ? "#2f855a" : value < 0 ? "#c53030" : "#667780", fontWeight: 600 }}>
+                {value > 0 ? "↑" : value < 0 ? "↓" : "→"} {Math.abs(value)} п.п.
+              </Text>
+            ),
+          },
+          {
+            title: "Статус",
+            dataIndex: "status",
+            key: "status",
+            width: 150,
+            render: (status: string) => status === "insufficient"
+              ? <Tag>Мало данных</Tag>
+              : status === "target"
+                ? <Tag color="green">Цель достигнута</Tag>
+                : status === "attention"
+                  ? <Tag color="gold">Требует внимания</Tag>
+                  : <Tag color="red">Критично</Tag>,
+          },
+          { title: "", key: "go", width: 36, render: () => <RightOutlined style={{ color: "#087f8c" }} /> },
+        ]}
+      />
+      </Card>
+    </>
   );
 }
 

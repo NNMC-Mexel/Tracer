@@ -205,6 +205,39 @@ a {
   font-weight: 600;
 }
 
+.report-scope-card {
+  border-color: #b9dfe2 !important;
+  background: #f1fbfb !important;
+}
+
+.report-empty-guide .ant-card-body {
+  padding: 48px 24px;
+}
+
+.report-empty-guide .ant-empty-description {
+  max-width: 620px;
+  margin-inline: auto;
+}
+
+.report-overview-table {
+  margin-top: 20px;
+}
+
+.report-overview-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 4px 2px;
+}
+
+@media (max-width: 767px) {
+  .report-overview-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 .report-context-card {
   color: #fff;
   border: 0 !important;
