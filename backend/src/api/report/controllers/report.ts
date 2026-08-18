@@ -552,7 +552,7 @@ export default {
     // критерий → месяц → счётчики; отдел → месяц → % сотрудников; сотрудник → месяц → %
     const cm = new Map<number, Map<string, Cnt>>();
     const dm = new Map<string, { id?: number; name: string; scores: Map<string, number[]>; sessions: Map<string, Set<number>> }>();
-    const em = new Map<number, { name: string; position: string; scores: Map<string, number[]> }>();
+    const em = new Map<number, { name: string; position: string; department: string; scores: Map<string, number[]> }>();
 
     for (const sub of subjects) {
       const sid = sub.session?.id;
@@ -588,6 +588,7 @@ export default {
           em.set(empId, {
             name: sub.employee?.fullName ?? sub.label ?? "—",
             position: sub.employee?.position ?? sub.positionSnapshot ?? "",
+            department: dName,
             scores: new Map(),
           });
         const ee = em.get(empId)!;
@@ -656,6 +657,7 @@ export default {
           employeeId: id,
           name: e.name,
           position: e.position,
+          department: e.department,
           cells,
           trend: classifyTrend(pts),
           firstPct: pts[0] ?? null,

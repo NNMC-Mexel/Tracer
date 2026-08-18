@@ -51,8 +51,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       .sort((a, b) => b.length - a.length)[0] ?? "/dashboard";
 
   const brand = (
-    <div style={{ height: 56, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600 }}>
-      Трейсер чистоты
+    <div className="app-brand">
+      <span className="app-brand-mark"><AuditOutlined /></span>
+      <span>Трейсер чистоты</span>
     </div>
   );
 
@@ -69,9 +70,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   );
 
   return (
-    <Layout style={{ minHeight: "100vh" }}>
+    <Layout className="app-shell" style={{ minHeight: "100vh" }}>
       {!isMobile && (
-        <Sider theme="light">
+        <Sider theme="light" width={232} className="app-sidebar">
           {brand}
           {menu}
         </Sider>
@@ -89,6 +90,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
       <Layout>
         <Header
+          className="app-header"
           style={{
             background: "#fff",
             display: "flex",
@@ -112,7 +114,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           </div>
         </Header>
 
-        <Content style={{ margin: isMobile ? 8 : 16 }}>{children}</Content>
+        <Content style={{ padding: isMobile ? 10 : 24 }}>{children}</Content>
       </Layout>
     </Layout>
   );

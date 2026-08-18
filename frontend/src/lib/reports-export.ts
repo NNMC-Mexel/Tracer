@@ -227,9 +227,10 @@ export async function exportDynamicsExcel(dyn: Dynamics, meta: Meta) {
 
   if (dyn.employees.length) {
     const emp: (string | number)[][] = [
-      ["ФИО", "Должность", ...mh, "Тренд", "было %", "стало %"],
+      ["ФИО", "Отдел", "Должность", ...mh, "Тренд", "было %", "стало %"],
       ...dyn.employees.map((e) => [
         e.name,
+        e.department,
         e.position,
         ...e.cells.map((c) => num(c.avgPercent)),
         TREND_META[e.trend].label,
@@ -265,9 +266,10 @@ export async function exportDynamicsPdf(dyn: Dynamics, meta: Meta, mode: "criter
 
   const body: any[][] = empMode
     ? [
-        [th("ФИО", "left"), th("Должность", "left"), ...mh.map((m) => th(m)), th("Тренд")],
+        [th("ФИО", "left"), th("Отдел", "left"), th("Должность", "left"), ...mh.map((m) => th(m)), th("Тренд")],
         ...dyn.employees.map((e) => [
           { text: e.name, fontSize: 8 },
+          { text: e.department, fontSize: 7, color: "#666" },
           { text: e.position, fontSize: 7, color: "#666" },
           ...e.cells.map((c) => pcell(c.avgPercent)),
           { text: TREND_META[e.trend].label, fontSize: 7, alignment: "center" },
@@ -283,7 +285,7 @@ export async function exportDynamicsPdf(dyn: Dynamics, meta: Meta, mode: "criter
       ];
 
   const widths = empMode
-    ? ["*", "auto", ...monthWidths, "auto"]
+    ? ["*", "auto", "auto", ...monthWidths, "auto"]
     : ["*", ...monthWidths, "auto"];
 
   const doc = {

@@ -11,6 +11,16 @@ process.chdir(path.join(__dirname, ".."));
 
 const { createStrapi, compileStrapi } = require("@strapi/strapi");
 
+const DEPARTMENT_RENAMES = {
+  "Амбулаторно-консультативный центр": "АКЦ",
+  "Аптека №1": "Аптека ННМЦ",
+  "Аптека №2": "Аптека ДКХЦ",
+  "Отдел анестезиологии,реанимации и интенсивной терапии (ОАРИТ №1)": "ОАРИТ №1",
+  "Отдел анестезиологии,реанимации и интенсивной терапии кардиологического и кардиохирургического профиля (ОАРИТ №2)": "ОАРИТ №2",
+};
+
+const departmentName = (name) => DEPARTMENT_RENAMES[name] ?? name;
+
 async function main() {
   const reset = process.argv.includes("--reset");
   const dataPath = path.join(__dirname, "employees.json");
@@ -56,8 +66,9 @@ async function main() {
     const depId = {};
     const depSet = new Map();
     for (const r of all) {
-      const k = depKey(r.code, r.department);
-      if (!depSet.has(k)) depSet.set(k, { code: r.code, name: r.department });
+      const name = departmentName(r.department);
+      const k = depKey(r.code, name);
+      if (!depSet.has(k)) depSet.set(k, { code: r.code, name });
     }
     for (const { code, name } of depSet.values()) {
       const rec = await db(DEP).create({
@@ -75,7 +86,7 @@ async function main() {
           fullName: r.fullName,
           position: r.position,
           organization: orgId[r.code],
-          department: depId[depKey(r.code, r.department)],
+          department: depId[depKey(r.code, departmentName(r.department))],
           active: true,
         },
       });

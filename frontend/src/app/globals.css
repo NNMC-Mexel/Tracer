@@ -1,6 +1,11 @@
 :root {
-  --background: #f5f7fa;
-  --foreground: #1f2937;
+  --background: #f3f6f7;
+  --foreground: #162a3a;
+  --surface: #ffffff;
+  --muted: #667985;
+  --line: #e1e8eb;
+  --accent: #087f8c;
+  --accent-soft: #e8f5f6;
 }
 
 * {
@@ -26,4 +31,211 @@ body {
 a {
   color: inherit;
   text-decoration: none;
+}
+
+.app-shell .ant-layout-sider {
+  border-right: 1px solid var(--line);
+}
+
+.app-brand {
+  height: 72px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 18px;
+  font-weight: 700;
+  color: #163541;
+}
+
+.app-brand-mark {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: #fff;
+  background: var(--accent);
+  box-shadow: 0 6px 16px rgb(8 127 140 / 18%);
+}
+
+.app-sidebar .ant-menu {
+  padding: 6px 10px;
+  border-inline-end: 0 !important;
+}
+
+.app-sidebar .ant-menu-item {
+  height: 44px;
+  line-height: 44px;
+  margin-block: 4px;
+}
+
+.app-header {
+  border-bottom: 1px solid var(--line);
+}
+
+.report-page {
+  max-width: 1560px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.report-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 20px;
+  padding: 12px 4px 2px;
+}
+
+.report-eyebrow {
+  margin-bottom: 6px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.report-filter-card,
+.report-toolbar,
+.report-section-card,
+.report-metric-card {
+  border: 1px solid var(--line) !important;
+  box-shadow: 0 1px 2px rgb(22 42 58 / 3%);
+}
+
+.report-filter-card .ant-card-body {
+  padding: 18px 20px;
+}
+
+.report-filter-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.report-tabs > .ant-tabs-nav {
+  margin-bottom: 16px;
+}
+
+.report-tabs > .ant-tabs-nav::before {
+  border-color: var(--line);
+}
+
+.report-tabs .ant-tabs-tab {
+  padding: 12px 4px;
+  font-weight: 600;
+}
+
+.report-metric-card {
+  height: 100%;
+  overflow: hidden;
+}
+
+.report-metric-card .ant-card-body {
+  padding: 18px 20px;
+}
+
+.report-metric-card::before {
+  content: "";
+  display: block;
+  height: 3px;
+  background: var(--metric-color, var(--accent));
+}
+
+.report-metric-card .ant-statistic-title {
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.report-metric-card .ant-statistic-content {
+  color: #163541;
+  font-weight: 700;
+}
+
+.report-page .ant-card-head {
+  min-height: 54px;
+  border-bottom-color: var(--line);
+}
+
+.report-page .ant-card-head-title {
+  color: #203b47;
+  font-weight: 650;
+}
+
+.report-section-card .ant-card-head-wrapper {
+  gap: 16px;
+}
+
+.report-page .ant-table-thead > tr > th {
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: .01em;
+}
+
+.report-page .ant-table-tbody > tr > td {
+  padding-top: 13px;
+  padding-bottom: 13px;
+  border-bottom-color: #edf1f2;
+}
+
+.report-clickable-row {
+  cursor: pointer;
+}
+
+.report-clickable-row:hover .report-row-link {
+  color: var(--accent);
+}
+
+.report-row-link {
+  font-weight: 600;
+  transition: color .15s ease;
+}
+
+.report-context-card {
+  color: #fff;
+  border: 0 !important;
+  background: #174854 !important;
+}
+
+.report-context-card .ant-typography,
+.report-context-card .ant-statistic-title,
+.report-context-card .ant-statistic-content {
+  color: #fff !important;
+}
+
+.report-context-card .ant-statistic-title {
+  opacity: .72;
+}
+
+@media (max-width: 767px) {
+  .report-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .report-filter-card .ant-card-body {
+    padding: 14px;
+  }
+
+  .report-metric-card .ant-card-body {
+    padding: 14px;
+  }
+
+  .report-metric-card .ant-statistic-content {
+    font-size: 24px;
+  }
+
+  .report-section-card .ant-card-head-wrapper {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+    padding-block: 10px;
+  }
 }

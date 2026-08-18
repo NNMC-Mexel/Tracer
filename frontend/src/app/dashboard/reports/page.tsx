@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import {
   Card,
   Select,
@@ -31,7 +31,6 @@ import {
   FilePdfOutlined,
   AuditOutlined,
   TeamOutlined,
-  PercentageOutlined,
   EditOutlined,
   DeleteOutlined,
   PrinterOutlined,
@@ -116,12 +115,26 @@ export default function ReportsPage() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <Card>
+    <div className="report-page">
+      <div className="report-hero">
+        <div>
+          <div className="report-eyebrow">Аналитика качества</div>
+          <Title level={2} style={{ margin: 0, fontSize: 30 }}>Отчёты</Title>
+          <Text type="secondary">
+            Динамика соблюдения требований, проблемные зоны и результаты проверок
+          </Text>
+        </div>
+        {user?.program?.name && (
+          <Tag color="cyan" style={{ margin: 0, padding: "5px 10px", borderRadius: 8 }}>
+            {user.program.name}
+          </Tag>
+        )}
+      </div>
+
+      <Card className="report-filter-card">
         <Space wrap size="middle" align="end" style={{ width: "100%" }}>
           <div>
-            <Text strong>Год</Text>
-            <br />
+            <span className="report-filter-label">Год отчёта</span>
             <Select
               style={{ width: 110, marginTop: 4 }}
               value={year}
@@ -130,8 +143,7 @@ export default function ReportsPage() {
             />
           </div>
           <div>
-            <Text strong>Период</Text>
-            <br />
+            <span className="report-filter-label">Период анализа</span>
             <RangePicker
               style={{ marginTop: 4 }}
               value={range}
@@ -152,6 +164,7 @@ export default function ReportsPage() {
       </Card>
 
       <Tabs
+        className="report-tabs"
         items={[
           { key: "summary", label: "Сводка", children: <DrillDown from={from} to={to} periodLabel={periodLabel} programId={programId} ready={ready} /> },
           { key: "dynamics", label: "Динамика", children: <DynamicsTab from={from} to={to} periodLabel={periodLabel} programId={programId} ready={ready} /> },
@@ -456,7 +469,7 @@ function DrillDown({ from, to, periodLabel, programId, ready }: { from: string; 
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <Card size="small">
+      <Card size="small" className="report-toolbar">
         <Space style={{ width: "100%", justifyContent: "space-between" }} wrap>
           <Breadcrumb items={crumbs} />
           {exportButtons}
@@ -485,14 +498,25 @@ function LevelTracers({ summary, onPick }: { summary: Summary; onPick: (q: { id:
   return (
     <>
       <Row gutter={[16, 16]}>
-        <Col xs={12} md={8}>
-          <Card><Statistic title="Трейсеров проведено" value={k.sessions} prefix={<AuditOutlined />} /></Card>
+        <Col xs={12} xl={6}>
+          <Card className="report-metric-card" style={{ "--metric-color": "#087f8c" } as CSSProperties}>
+            <Statistic title="Проведено проверок" value={k.sessions} prefix={<AuditOutlined />} />
+          </Card>
         </Col>
-        <Col xs={12} md={8}>
-          <Card><Statistic title="Проверено сотрудников" value={k.subjects} prefix={<TeamOutlined />} /></Card>
+        <Col xs={12} xl={6}>
+          <Card className="report-metric-card" style={{ "--metric-color": "#4c7f98" } as CSSProperties}>
+            <Statistic title="Оценок сотрудников" value={k.subjects} prefix={<TeamOutlined />} />
+          </Card>
         </Col>
-        <Col xs={12} md={8}>
-          <Card><Statistic title="Средний % (по отделам)" value={k.avgPercent} suffix="%" prefix={<PercentageOutlined />} /></Card>
+        <Col xs={12} xl={6}>
+          <Card className="report-metric-card" style={{ "--metric-color": "#2f855a" } as CSSProperties}>
+            <Statistic title="Средний результат" value={k.avgPercent} suffix="%" />
+          </Card>
+        </Col>
+        <Col xs={12} xl={6}>
+          <Card className="report-metric-card" style={{ "--metric-color": "#c53030" } as CSSProperties}>
+            <Statistic title="Требуют внимания" value={k.levelCounts.low ?? 0} suffix="пров." valueStyle={{ color: "#a62b2b" }} />
+          </Card>
         </Col>
       </Row>
 
@@ -501,7 +525,7 @@ function LevelTracers({ summary, onPick }: { summary: Summary; onPick: (q: { id:
       <MonthlyChart summary={summary} />
       <DeptCompareChart summary={summary} />
 
-      <Card title="Трейсеры — нажмите, чтобы провалиться">
+      <Card className="report-section-card" title="Трейсеры" extra={<Text type="secondary">Выберите строку для детализации</Text>}>
         <Table
           rowKey="name"
           size="middle"
@@ -509,11 +533,11 @@ function LevelTracers({ summary, onPick }: { summary: Summary; onPick: (q: { id:
           scroll={{ x: "max-content" }}
           dataSource={summary.byQuestionnaire}
           onRow={(r) => ({
-            style: { cursor: r.id ? "pointer" : "default" },
+            className: r.id ? "report-clickable-row" : "",
             onClick: () => r.id && onPick({ id: r.id, name: r.name }),
           })}
           columns={[
-            { title: "Трейсер", dataIndex: "name", key: "name" },
+            { title: "Трейсер", dataIndex: "name", key: "name", render: (name: string) => <span className="report-row-link">{name}</span> },
             { title: "Отделов", dataIndex: "departments", key: "departments", width: 90 },
             { title: "Проведено", dataIndex: "sessions", key: "sessions", width: 100 },
             {
@@ -523,7 +547,7 @@ function LevelTracers({ summary, onPick }: { summary: Summary; onPick: (q: { id:
               width: 240,
               render: (v: number) => <Progress percent={v} size="small" />,
             },
-            { title: "", key: "go", width: 36, render: () => <RightOutlined style={{ color: "#bbb" }} /> },
+            { title: "", key: "go", width: 36, render: () => <RightOutlined style={{ color: "#087f8c" }} /> },
           ]}
         />
       </Card>
@@ -543,7 +567,7 @@ function LevelDepartments({
   const k = summary.kpi;
   return (
     <>
-      <Card>
+      <Card className="report-context-card">
         <Title level={4} style={{ marginTop: 0 }}>{title}</Title>
         <Space size="large" wrap>
           <Statistic title="Свод по трейсеру" value={k.avgPercent} suffix="%" />
@@ -558,16 +582,16 @@ function LevelDepartments({
       <MonthlyChart summary={summary} />
       <DeptCompareChart summary={summary} />
 
-      <Card title="Отделы — нажмите, чтобы увидеть сотрудников">
+      <Card className="report-section-card" title="Отделы" extra={<Text type="secondary">Выберите отдел, чтобы увидеть сотрудников</Text>}>
         <Table
           rowKey="name"
           size="middle"
           pagination={false}
           scroll={{ x: "max-content" }}
           dataSource={summary.byDepartment}
-          onRow={(r) => ({ style: { cursor: "pointer" }, onClick: () => onPick({ id: r.departmentId, name: r.name }) })}
+          onRow={(r) => ({ className: "report-clickable-row", onClick: () => onPick({ id: r.departmentId, name: r.name }) })}
           columns={[
-            { title: "Отдел", dataIndex: "name", key: "name" },
+            { title: "Отдел", dataIndex: "name", key: "name", render: (name: string) => <span className="report-row-link">{name}</span> },
             { title: "Проведено", dataIndex: "sessions", key: "sessions", width: 100 },
             {
               title: "Средний %",
@@ -589,7 +613,7 @@ function LevelDepartments({
                   </Space>
                 ),
             },
-            { title: "", key: "go", width: 36, render: () => <RightOutlined style={{ color: "#bbb" }} /> },
+            { title: "", key: "go", width: 36, render: () => <RightOutlined style={{ color: "#087f8c" }} /> },
           ]}
         />
       </Card>
@@ -622,7 +646,7 @@ function LevelEmployees({ summary, department, scoped }: { summary: Summary; dep
     : 0;
   return (
     <>
-      <Card>
+      <Card className="report-context-card">
         <Title level={4} style={{ marginTop: 0 }}>{department}</Title>
         <Space size="large" wrap>
           <Statistic title="Средний % отдела" value={avg} suffix="%" />
@@ -632,7 +656,7 @@ function LevelEmployees({ summary, department, scoped }: { summary: Summary; dep
 
       {scoped && <WeakCriteria summary={summary} />}
 
-      <Card title="Сотрудники">
+      <Card className="report-section-card" title="Сотрудники" extra={<Text type="secondary">{department}</Text>}>
         <Table
           rowKey={(r) => `${r.employeeId}-${r.scorePercent}`}
           size="middle"
@@ -642,6 +666,7 @@ function LevelEmployees({ summary, department, scoped }: { summary: Summary; dep
           locale={{ emptyText: "Нет проверенных сотрудников" }}
           columns={[
             { title: "ФИО", dataIndex: "fullName", key: "fullName" },
+            { title: "Отдел", dataIndex: "department", key: "department", width: 220 },
             { title: "Должность", dataIndex: "position", key: "position" },
             { title: "Категория", dataIndex: "category", key: "category", width: 90 },
             {
@@ -740,9 +765,16 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
   const deptName = deptOptions.find((o) => o.value === deptId)?.label;
   const title = `Динамика — ${selectedQ?.name ?? ""}${deptName ? " — " + deptName : ""}`;
 
-  const cColor = (p: number | null) => (p == null ? "#f5f5f5" : p >= 85 ? "#52c41a" : p >= 60 ? "#faad14" : "#ff4d4f");
+  const cColor = (p: number | null) =>
+    p == null
+      ? { bg: "#f3f6f7", text: "#9aabb3", border: "#e1e8eb" }
+      : p >= 85
+        ? { bg: "#eaf6ef", text: "#26734c", border: "#cde8d7" }
+        : p >= 60
+          ? { bg: "#fff7e8", text: "#9b6618", border: "#f1dfb8" }
+          : { bg: "#fff0f0", text: "#b83232", border: "#f2d0d0" };
   const box = (p: number | null) => (
-    <div style={{ background: cColor(p), color: p == null ? "#bbb" : "#fff", borderRadius: 3, fontSize: 11, padding: "3px 0", fontWeight: 600, textAlign: "center" }}>
+    <div style={{ background: cColor(p).bg, color: cColor(p).text, border: `1px solid ${cColor(p).border}`, borderRadius: 6, fontSize: 11, padding: "4px 0", fontWeight: 700, textAlign: "center" }}>
       {p == null ? "—" : Math.round(p)}
     </div>
   );
@@ -813,6 +845,14 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
         </div>
       ),
     },
+    {
+      title: "Отдел",
+      dataIndex: "department",
+      key: "department",
+      fixed: "left",
+      width: 190,
+      render: (department: string) => <span style={{ color: "#536873", fontSize: 12 }}>{department || "—"}</span>,
+    },
     ...monthHead.map((h) => ({
       ...h,
       render: (_: unknown, r: DynEmpRow) => {
@@ -866,12 +906,11 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <Card size="small">
+      <Card size="small" className="report-filter-card">
         <Space wrap size="middle" align="end" style={{ width: "100%", justifyContent: "space-between" }}>
           <Space wrap size="middle" align="end">
             <div>
-              <Text strong>Трейсер</Text>
-              <br />
+              <span className="report-filter-label">Трейсер</span>
               <Select
                 style={{ width: 320, marginTop: 4 }}
                 showSearch
@@ -883,8 +922,7 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
               />
             </div>
             <div>
-              <Text strong>Отдел</Text>
-              <br />
+              <span className="report-filter-label">Отдел</span>
               <Select
                 style={{ width: 240, marginTop: 4 }}
                 allowClear
@@ -898,8 +936,7 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
             </div>
             {canEmployee && (
               <div>
-                <Text strong>Разрез</Text>
-                <br />
+                <span className="report-filter-label">Разрез</span>
                 <Segmented
                   style={{ marginTop: 4 }}
                   value={effectiveMode}
@@ -930,7 +967,7 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
         <Empty description={effectiveMode === "employee" ? "Нет проверенных сотрудников за период" : "Нет данных за выбранный период"} />
       ) : (
         <>
-          <Card size="small">
+          <Card size="small" className="report-section-card">
             <Space size="large" wrap>
               <Statistic title="Держится нарушение" value={cnt("persistent")} valueStyle={{ color: "#cf1322" }} />
               <Statistic title="Исправляются" value={cnt("improving")} valueStyle={{ color: "#52c41a" }} />
@@ -939,7 +976,7 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
           </Card>
 
           {effectiveMode === "employee" ? (
-            <Card size="small" title={`Динамика по сотрудникам${deptName ? " — " + deptName : ""} (худшие сверху)`}>
+            <Card className="report-section-card" size="small" title={`Динамика по сотрудникам${deptName ? " — " + deptName : ""} (худшие сверху)`}>
               <Table<DynEmpRow>
                 rowKey="employeeId"
                 size="small"
@@ -955,6 +992,7 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
           ) : (
             <>
               <Card
+                className="report-section-card"
                 size="small"
                 title={`Динамика по пунктам${deptName ? " — " + deptName : " (все отделы)"}`}
                 extra={
@@ -984,7 +1022,7 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
               </Card>
 
               {!deptId && (data!.departments?.length ?? 0) > 1 && (
-                <Card size="small" title="Динамика по отделам (средний % за месяц)">
+                <Card className="report-section-card" size="small" title="Динамика по отделам (средний % за месяц)">
                   <Table<DynDeptRow>
                     rowKey={(row) => row.departmentId ? `id:${row.departmentId}` : `snapshot:${row.name}`}
                     size="small"
@@ -1120,6 +1158,7 @@ function Journal({
 
   return (
     <Card
+      className="report-section-card"
       title="Журнал трейсеров"
       extra={
         <Space>

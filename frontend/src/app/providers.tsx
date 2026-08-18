@@ -14,9 +14,22 @@ export default function Providers({ children }: { children: ReactNode }) {
       locale={ruRU}
       theme={{
         token: {
-          colorPrimary: "#1677ff",
-          borderRadius: 8,
+          colorPrimary: "#087f8c",
+          colorInfo: "#087f8c",
+          colorSuccess: "#2f855a",
+          colorWarning: "#b7791f",
+          colorError: "#c53030",
+          colorText: "#162a3a",
+          colorTextSecondary: "#667985",
+          colorBorderSecondary: "#e1e8eb",
+          colorBgLayout: "#f3f6f7",
+          borderRadius: 10,
           fontFamily: "var(--font-app), system-ui, sans-serif",
+        },
+        components: {
+          Card: { boxShadowTertiary: "none" },
+          Table: { headerBg: "#f7f9fa", headerColor: "#536873", rowHoverBg: "#f0f8f8" },
+          Menu: { itemSelectedBg: "#e8f5f6", itemSelectedColor: "#087f8c", itemBorderRadius: 10 },
         },
       }}
     >
