@@ -680,4 +680,105 @@ export default {
       },
     };
   },
+
+  /**
+   * Карточка аналитики сотрудника: все персональные трейсеры за период.
+   * GET /api/reports/employee-profile?employeeId&from&to
+   */
+  async employeeProfile(ctx) {
+    const { employeeId, from, to } = ctx.query as Record<string, string>;
+    if (!validatePeriod(ctx, from, to)) return;
+    const programId = await reportProgramId(ctx);
+    if (!programId) return;
+    const eId = positiveInt(employeeId);
+    if (!eId) return ctx.badRequest("employeeId должен быть положительным целым числом");
+
+    const employee = await strapi.db.query("api::employee.employee").findOne({
+      where: { id: eId },
+      populate: { department: true },
+    });
+    if (!employee) return ctx.notFound("Сотрудник не найден");
+
+    const subjectWhere: Record<string, unknown> = {
+      employee: eId,
+      session: { questionnaire: { program: programId, subjectType: "employee" } },
+    };
+    if (from || to) {
+      const date: Record<string, string> = {};
+      if (from) date.$gte = from;
+      if (to) date.$lte = to;
+      subjectWhere.session = {
+        questionnaire: { program: programId, subjectType: "employee" },
+        date,
+      };
+    }
+
+    const subjects = await strapi.db.query("api::tracer-subject.tracer-subject").findMany({
+      where: subjectWhere,
+      populate: {
+        session: { populate: { questionnaire: true, department: true } },
+      },
+      limit: 1000000,
+    });
+
+    type EmployeeTracer = {
+      questionnaireId: number;
+      name: string;
+      departmentId?: number;
+      department: string;
+      scores: number[];
+      dates: string[];
+    };
+    const tracerMap = new Map<string, EmployeeTracer>();
+    for (const subject of subjects) {
+      const questionnaire = subject.session?.questionnaire;
+      if (!questionnaire?.id) continue;
+      const departmentId = subject.session?.department?.id;
+      const department = subject.session?.department?.name ?? subject.departmentSnapshot ?? "—";
+      const key = `${questionnaire.id}:${departmentId ?? department}`;
+      if (!tracerMap.has(key)) {
+        tracerMap.set(key, {
+          questionnaireId: questionnaire.id,
+          name: questionnaire.name ?? "—",
+          departmentId,
+          department,
+          scores: [],
+          dates: [],
+        });
+      }
+      const item = tracerMap.get(key)!;
+      if (subject.scorePercent !== null && subject.scorePercent !== undefined) {
+        const score = Number(subject.scorePercent);
+        if (Number.isFinite(score)) item.scores.push(score);
+      }
+      if (subject.session?.date) item.dates.push(subject.session.date);
+    }
+
+    const tracers = [...tracerMap.values()]
+      .map((item) => ({
+        questionnaireId: item.questionnaireId,
+        name: item.name,
+        departmentId: item.departmentId,
+        department: item.department,
+        assessments: item.scores.length,
+        avgPercent: avg(item.scores),
+        lastDate: item.dates.sort().at(-1) ?? null,
+      }))
+      .sort((a, b) => (b.lastDate ?? "").localeCompare(a.lastDate ?? "") || a.name.localeCompare(b.name));
+
+    ctx.body = {
+      data: {
+        employee: {
+          id: employee.id,
+          fullName: employee.fullName,
+          position: employee.position ?? "",
+          category: employee.category ?? "",
+          departmentId: employee.department?.id,
+          department: employee.department?.name ?? "—",
+        },
+        assessments: tracers.reduce((sum, item) => sum + item.assessments, 0),
+        tracers,
+      },
+    };
+  },
 };

@@ -131,6 +131,27 @@ export interface Dynamics {
   employees: DynEmpRow[];
 }
 
+export interface EmployeeReportProfile {
+  employee: {
+    id: number;
+    fullName: string;
+    position: string;
+    category: string;
+    departmentId?: number;
+    department: string;
+  };
+  assessments: number;
+  tracers: {
+    questionnaireId: number;
+    name: string;
+    departmentId?: number;
+    department: string;
+    assessments: number;
+    avgPercent: number;
+    lastDate: string | null;
+  }[];
+}
+
 export const TREND_META: Record<Trend, { label: string; color: string; icon: string }> = {
   improving: { label: "Исправляются", color: "#52c41a", icon: "↑" },
   worsening: { label: "Ухудшение", color: "#ff4d4f", icon: "↓" },
@@ -181,6 +202,18 @@ export async function getDynamics(params: SummaryParams, signal?: AbortSignal): 
   if (params.questionnaireId) qs.set("questionnaireId", String(params.questionnaireId));
   if (params.programId) qs.set("programId", String(params.programId));
   const res = await strapiFetch<{ data: Dynamics }>(`/api/reports/dynamics?${qs.toString()}`, { signal });
+  return res.data;
+}
+
+export async function getEmployeeReportProfile(
+  employeeId: number,
+  params: Pick<SummaryParams, "from" | "to" | "programId">,
+): Promise<EmployeeReportProfile> {
+  const qs = new URLSearchParams({ employeeId: String(employeeId) });
+  if (params.from) qs.set("from", params.from);
+  if (params.to) qs.set("to", params.to);
+  if (params.programId) qs.set("programId", String(params.programId));
+  const res = await strapiFetch<{ data: EmployeeReportProfile }>(`/api/reports/employee-profile?${qs.toString()}`);
   return res.data;
 }
 

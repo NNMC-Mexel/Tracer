@@ -55,6 +55,7 @@ import {
   getReportYears,
   getSummary,
   getDynamics,
+  getEmployeeReportProfile,
   getJournal,
   getSessionDetail,
   monthLabel,
@@ -64,6 +65,7 @@ import {
   type JournalRow,
   type Heatmap,
   type Dynamics,
+  type EmployeeReportProfile,
   type DynCritRow,
   type DynDeptRow,
   type DynEmpRow,
@@ -516,7 +518,7 @@ function LevelTracers({ summary, onPick }: { summary: Summary; onPick: (q: { id:
         </Col>
         <Col xs={12} xl={6}>
           <Card className="report-metric-card" style={{ "--metric-color": "#c53030" } as CSSProperties}>
-            <Statistic title="Требуют внимания" value={k.levelCounts.low ?? 0} suffix="пров." valueStyle={{ color: "#a62b2b" }} />
+            <Statistic title="Требуют внимания" value={k.levelCounts.low ?? 0} suffix="пров." styles={{ content: { color: "#a62b2b" } }} />
           </Card>
         </Col>
       </Row>
@@ -724,6 +726,10 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<"criteria" | "employee">("criteria");
   const [sortMode, setSortMode] = useState<"order" | "problem">("order");
+  const [employeeProfile, setEmployeeProfile] = useState<EmployeeReportProfile | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [focusEmployee, setFocusEmployee] = useState<{ id: number; name: string } | null>(null);
 
   const selectedQ = questionnaires.find((q) => q.id === qId);
   const canEmployee = selectedQ?.subjectType === "employee";
@@ -827,14 +833,47 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
 
   const openDepartmentEmployees = (department: DynDeptRow) => {
     if (!department.departmentId) return;
+    setFocusEmployee(null);
     setDeptId(department.departmentId);
     setMode(canEmployee ? "employee" : "criteria");
   };
 
   const openDepartmentDynamics = (departmentId?: number) => {
     if (!departmentId) return;
+    setFocusEmployee(null);
     setDeptId(departmentId);
     setMode("criteria");
+  };
+
+  const openEmployeeProfile = async (employee: DynEmpRow) => {
+    setProfileOpen(true);
+    setProfileLoading(true);
+    setEmployeeProfile(null);
+    try {
+      setEmployeeProfile(await getEmployeeReportProfile(employee.employeeId, { from, to, programId }));
+    } catch {
+      message.error("Не удалось загрузить историю сотрудника");
+      setProfileOpen(false);
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  const openEmployeeTracer = (
+    tracer: EmployeeReportProfile["tracers"][number],
+    targetMode: "employee" | "criteria" = "employee",
+  ) => {
+    setQId(tracer.questionnaireId);
+    setDeptId(tracer.departmentId);
+    setDeptOptions(tracer.departmentId ? [{ value: tracer.departmentId, label: tracer.department }] : []);
+    setMode(targetMode);
+    if (targetMode === "employee" && employeeProfile) {
+      setFocusEmployee({ id: employeeProfile.employee.id, name: employeeProfile.employee.fullName });
+    } else {
+      setFocusEmployee(null);
+    }
+    setData(null);
+    setProfileOpen(false);
   };
 
   const monthHead = months.map((m) => ({
@@ -882,7 +921,9 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
       width: 220,
       render: (_, r) => (
         <div>
-          <div style={{ fontSize: 12 }}>{r.name}</div>
+          <Button type="link" size="small" className="report-inline-link" onClick={() => openEmployeeProfile(r)}>
+            {r.name} <RightOutlined />
+          </Button>
           {r.position ? <div style={{ fontSize: 11, color: "#999" }}>{r.position}</div> : null}
         </div>
       ),
@@ -963,6 +1004,22 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
   }
 
   const empty = !data || (effectiveMode === "employee" ? (data.employees?.length ?? 0) === 0 : (data.rows?.length ?? 0) === 0);
+  const sessionCount = (data?.departments ?? []).reduce(
+    (total, department) => total + department.cells.reduce((sum, cell) => sum + cell.sessions, 0),
+    0,
+  );
+  const employeeCount = new Set((data?.employees ?? []).map((employee) => employee.employeeId)).size;
+  const employeeAssessments = (data?.employees ?? []).reduce(
+    (total, employee) => total + employee.cells.reduce((sum, cell) => sum + cell.sessions, 0),
+    0,
+  );
+  const answerCount = (data?.rows ?? []).reduce(
+    (total, row) => total + row.cells.reduce((sum, cell) => sum + cell.total, 0),
+    0,
+  );
+  const monthsWithData = new Set(
+    (data?.departments ?? []).flatMap((department) => department.cells.filter((cell) => cell.sessions > 0).map((cell) => cell.month)),
+  ).size;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -978,8 +1035,17 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
                 placeholder="Выберите трейсер"
                 value={qId}
                 allowClear
-                onChange={(v) => { setQId(v); setDeptId(undefined); setDeptOptions([]); setData(null); }}
-                options={questionnaires.map((q) => ({ value: q.id, label: q.name }))}
+                onChange={(v) => { setQId(v); setDeptId(undefined); setDeptOptions([]); setFocusEmployee(null); setData(null); }}
+                options={[
+                  {
+                    label: "Трейсеры по персоналу",
+                    options: questionnaires.filter((q) => q.subjectType === "employee").map((q) => ({ value: q.id, label: q.name })),
+                  },
+                  {
+                    label: "Трейсеры по отделам",
+                    options: questionnaires.filter((q) => q.subjectType !== "employee").map((q) => ({ value: q.id, label: q.name })),
+                  },
+                ]}
               />
             </div>
             <div>
@@ -992,7 +1058,7 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
                 placeholder="Все отделы"
                 value={deptId}
                 disabled={!qId}
-                onChange={(v) => setDeptId(v)}
+                onChange={(v) => { setDeptId(v); setFocusEmployee(null); }}
                 options={deptOptions}
               />
             </div>
@@ -1028,9 +1094,10 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
         <DynamicsOverview
           summary={overview}
           previousSummary={previousOverview}
+          questionnaires={questionnaires}
           loading={overviewLoading}
           periodLabel={periodLabel}
-          onPick={(id) => { setQId(id); setDeptId(undefined); setDeptOptions([]); setData(null); }}
+          onPick={(id) => { setQId(id); setDeptId(undefined); setDeptOptions([]); setFocusEmployee(null); setData(null); }}
         />
       ) : loading ? (
         <Spin />
@@ -1046,6 +1113,37 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
               <Tag>Период: {periodLabel}</Tag>
             </Space>
           </Card>
+          <Card size="small" className="report-evidence-card">
+            <div className="report-evidence-head">
+              <div>
+                <div className="report-eyebrow">Основание расчёта</div>
+                <Title level={4} style={{ margin: "2px 0 4px" }}>
+                  {canEmployee ? "Оценка персонала" : "Оценка отдела по чек-листу"}
+                </Title>
+                <Text type="secondary">
+                  {canEmployee
+                    ? `Показатели рассчитаны по сотрудникам${deptName ? ` отдела «${deptName}»` : " выбранных отделов"}.`
+                    : `Этот трейсер оценивает состояние${deptName ? ` отдела «${deptName}»` : " отделов"}, а не конкретных сотрудников. ФИО в таких проверках не фиксируются.`}
+                </Text>
+              </div>
+              <Tag color={canEmployee ? "blue" : "cyan"}>{canEmployee ? "Объект: сотрудники" : "Объект: отдел"}</Tag>
+            </div>
+            <Row gutter={[12, 12]} className="report-evidence-metrics">
+              <Col xs={12} md={6}><Statistic title="Проверок" value={sessionCount} /></Col>
+              {canEmployee ? (
+                <>
+                  <Col xs={12} md={6}><Statistic title="Сотрудников" value={employeeCount} /></Col>
+                  <Col xs={12} md={6}><Statistic title="Оценок сотрудников" value={employeeAssessments} /></Col>
+                </>
+              ) : (
+                <>
+                  <Col xs={12} md={6}><Statistic title="Пунктов чек-листа" value={data?.criteria.length ?? 0} /></Col>
+                  <Col xs={12} md={6}><Statistic title="Ответов в расчёте" value={answerCount} /></Col>
+                </>
+              )}
+              <Col xs={12} md={6}><Statistic title="Месяцев с данными" value={monthsWithData} /></Col>
+            </Row>
+          </Card>
           {deptId && (
             <Card size="small" className="report-toolbar">
               <Space wrap style={{ width: "100%", justifyContent: "space-between" }}>
@@ -1060,14 +1158,19 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
           )}
           <Card size="small" className="report-section-card">
             <Space size="large" wrap>
-              <Statistic title="Держится нарушение" value={cnt("persistent")} valueStyle={{ color: "#cf1322" }} />
-              <Statistic title="Исправляются" value={cnt("improving")} valueStyle={{ color: "#52c41a" }} />
-              <Statistic title="Ухудшение" value={cnt("worsening")} valueStyle={{ color: "#ff4d4f" }} />
+              <Statistic title="Держится нарушение" value={cnt("persistent")} styles={{ content: { color: "#cf1322" } }} />
+              <Statistic title="Исправляются" value={cnt("improving")} styles={{ content: { color: "#52c41a" } }} />
+              <Statistic title="Ухудшение" value={cnt("worsening")} styles={{ content: { color: "#ff4d4f" } }} />
             </Space>
           </Card>
 
           {effectiveMode === "employee" ? (
-            <Card className="report-section-card" size="small" title={`Динамика по сотрудникам${deptName ? " — " + deptName : ""} (худшие сверху)`}>
+            <Card
+              className="report-section-card"
+              size="small"
+              title={`Динамика по сотрудникам${deptName ? " — " + deptName : ""} (худшие сверху)`}
+              extra={focusEmployee ? <Tag color="blue" closable onClose={() => setFocusEmployee(null)}>Фокус: {focusEmployee.name}</Tag> : null}
+            >
               <Table<DynEmpRow>
                 rowKey={(row) => `${row.employeeId}:${row.departmentId ?? row.department}`}
                 size="small"
@@ -1075,6 +1178,7 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
                 scroll={{ x: "max-content" }}
                 columns={empColumns}
                 dataSource={data!.employees ?? []}
+                rowClassName={(row) => row.employeeId === focusEmployee?.id ? "report-focused-row" : ""}
               />
               <div style={{ fontSize: 11, color: "#999", marginTop: 6 }}>
                 В ячейках — средний % сотрудника за месяц. Красная строка месяцами = человек не исправляется; переход 🟥→🟩 = исправился.
@@ -1142,6 +1246,72 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
           )}
         </>
       )}
+
+      <Modal
+        open={profileOpen}
+        onCancel={() => setProfileOpen(false)}
+        footer={null}
+        width={900}
+        title="Аналитика сотрудника"
+      >
+        {profileLoading ? <Spin /> : employeeProfile ? (
+          <Space orientation="vertical" size="large" style={{ width: "100%" }}>
+            <Card size="small" className="report-employee-profile-head">
+              <Space wrap style={{ width: "100%", justifyContent: "space-between" }}>
+                <div>
+                  <Title level={4} style={{ margin: 0 }}>{employeeProfile.employee.fullName}</Title>
+                  <Text type="secondary">
+                    {[employeeProfile.employee.position, employeeProfile.employee.department].filter(Boolean).join(" · ")}
+                  </Text>
+                </div>
+                <Space>
+                  <Statistic title="Трейсеров" value={employeeProfile.tracers.length} />
+                  <Statistic title="Оценок" value={employeeProfile.assessments} />
+                </Space>
+              </Space>
+            </Card>
+            <div>
+              <Title level={5}>Какими трейсерами оценивался сотрудник</Title>
+              <Text type="secondary">Нажмите строку, чтобы открыть выбранный трейсер в соответствующем отделе.</Text>
+            </div>
+            <Table
+              rowKey={(row) => `${row.questionnaireId}:${row.departmentId ?? row.department}`}
+              size="small"
+              pagination={false}
+              scroll={{ x: "max-content" }}
+              dataSource={employeeProfile.tracers}
+              onRow={(row) => ({ className: "report-clickable-row", onClick: () => openEmployeeTracer(row) })}
+              locale={{ emptyText: "За выбранный период сотрудник не оценивался персональными трейсерами" }}
+              columns={[
+                { title: "Трейсер", dataIndex: "name", key: "name", render: (name: string) => <span className="report-row-link">{name}</span> },
+                {
+                  title: "Отдел",
+                  dataIndex: "department",
+                  key: "department",
+                  width: 220,
+                  render: (department: string, row: EmployeeReportProfile["tracers"][number]) => row.departmentId ? (
+                    <Button
+                      type="link"
+                      size="small"
+                      className="report-inline-link"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openEmployeeTracer(row, "criteria");
+                      }}
+                    >
+                      {department} <RightOutlined />
+                    </Button>
+                  ) : department,
+                },
+                { title: "Оценок", dataIndex: "assessments", key: "assessments", width: 90 },
+                { title: "Средний результат", dataIndex: "avgPercent", key: "avgPercent", width: 190, render: (value: number) => <Progress percent={value} size="small" /> },
+                { title: "Последняя оценка", dataIndex: "lastDate", key: "lastDate", width: 140, render: (value: string | null) => value ? dayjs(value).format("DD.MM.YYYY") : "—" },
+                { title: "", key: "go", width: 36, render: () => <RightOutlined style={{ color: "#087f8c" }} /> },
+              ]}
+            />
+          </Space>
+        ) : null}
+      </Modal>
     </div>
   );
 }
@@ -1149,30 +1319,36 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
 function DynamicsOverview({
   summary,
   previousSummary,
+  questionnaires,
   loading,
   periodLabel,
   onPick,
 }: {
   summary: Summary | null;
   previousSummary: Summary | null;
+  questionnaires: Questionnaire[];
   loading: boolean;
   periodLabel: string;
   onPick: (id: number) => void;
 }) {
+  const [scope, setScope] = useState<"all" | "employee" | "department">("all");
   if (loading) return <Spin />;
+  const typeById = new Map(questionnaires.map((questionnaire) => [questionnaire.id, questionnaire.subjectType]));
   const previousById = new Map((previousSummary?.byQuestionnaire ?? []).map((row) => [row.id, row]));
-  const rows = (summary?.byQuestionnaire ?? [])
+  const allRows = (summary?.byQuestionnaire ?? [])
     .filter((row) => row.id)
     .map((row) => {
       const previous = previousById.get(row.id);
       return {
         ...row,
+        subjectType: typeById.get(row.id!) ?? "department",
         delta: previous ? Math.round((row.avgPercent - previous.avgPercent) * 10) / 10 : null,
         status: row.sessions < 2 ? "insufficient" : row.avgPercent >= 85 ? "target" : row.avgPercent >= 60 ? "attention" : "critical",
       };
     })
     .sort((a, b) => a.avgPercent - b.avgPercent || b.sessions - a.sessions);
-  if (rows.length === 0) {
+  const rows = allRows.filter((row) => scope === "all" || row.subjectType === scope);
+  if (allRows.length === 0) {
     return <Empty description="За выбранный период нет проведённых трейсеров" />;
   }
   const chartData = rows.map((row) => ({
@@ -1188,16 +1364,27 @@ function DynamicsOverview({
           <Title level={3} style={{ margin: "2px 0 4px" }}>Где требуется внимание</Title>
           <Text type="secondary">Все трейcеры за период {periodLabel}. Сначала показаны наиболее слабые результаты.</Text>
         </div>
-        <Space wrap>
-          <Tag color="green">Цель ≥ 85%</Tag>
-          <Tag>Сравнение с предыдущим равным периодом</Tag>
+        <Space orientation="vertical" align="end" size={8}>
+          <Segmented
+            value={scope}
+            onChange={(value) => setScope(value as "all" | "employee" | "department")}
+            options={[
+              { label: `Все (${allRows.length})`, value: "all" },
+              { label: `По персоналу (${allRows.filter((row) => row.subjectType === "employee").length})`, value: "employee" },
+              { label: `По отделам (${allRows.filter((row) => row.subjectType !== "employee").length})`, value: "department" },
+            ]}
+          />
+          <Space wrap>
+            <Tag color="green">Цель ≥ 85%</Tag>
+            <Tag>Сравнение с предыдущим равным периодом</Tag>
+          </Space>
         </Space>
       </div>
 
       <Row gutter={[12, 12]}>
-        <Col xs={12} xl={6}><Card className="report-metric-card"><Statistic title="Проведено проверок" value={summary?.kpi.sessions ?? 0} /></Card></Col>
+        <Col xs={12} xl={6}><Card className="report-metric-card"><Statistic title="Проведено проверок" value={rows.reduce((sum, row) => sum + row.sessions, 0)} /></Card></Col>
         <Col xs={12} xl={6}><Card className="report-metric-card"><Statistic title="Трейсеров с данными" value={rows.length} /></Card></Col>
-        <Col xs={12} xl={6}><Card className="report-metric-card"><Statistic title="Ниже цели" value={rows.filter((row) => row.status === "attention" || row.status === "critical").length} valueStyle={{ color: "#c53030" }} /></Card></Col>
+        <Col xs={12} xl={6}><Card className="report-metric-card"><Statistic title="Ниже цели" value={rows.filter((row) => row.status === "attention" || row.status === "critical").length} styles={{ content: { color: "#c53030" } }} /></Card></Col>
         <Col xs={12} xl={6}><Card className="report-metric-card"><Statistic title="Мало данных" value={rows.filter((row) => row.status === "insufficient").length} /></Card></Col>
       </Row>
 
@@ -1235,6 +1422,7 @@ function DynamicsOverview({
         onRow={(row) => ({ className: "report-clickable-row", onClick: () => onPick(row.id!) })}
         columns={[
           { title: "Трейсер", dataIndex: "name", key: "name", render: (name: string) => <span className="report-row-link">{name}</span> },
+          { title: "Тип", dataIndex: "subjectType", key: "subjectType", width: 130, render: (type: string) => type === "employee" ? <Tag color="blue">Персонал</Tag> : <Tag>Отдел</Tag> },
           { title: "Проверок", dataIndex: "sessions", key: "sessions", width: 110 },
           { title: "Средний результат", dataIndex: "avgPercent", key: "avgPercent", width: 220, render: (value: number) => <Progress percent={value} size="small" /> },
           {

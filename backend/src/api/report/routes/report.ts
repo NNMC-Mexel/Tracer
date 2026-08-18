@@ -18,5 +18,11 @@ export default {
       handler: "report.dynamics",
       config: { policies: [] },
     },
+    {
+      method: "GET",
+      path: "/reports/employee-profile",
+      handler: "report.employeeProfile",
+      config: { policies: [] },
+    },
   ],
 };

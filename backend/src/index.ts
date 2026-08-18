@@ -57,6 +57,7 @@ export default {
       "api::report.report.years",
       "api::report.report.summary",
       "api::report.report.dynamics",
+      "api::report.report.employeeProfile",
       // Загрузка фото проверки на месте
       "plugin::upload.content-api.upload",
     ]);

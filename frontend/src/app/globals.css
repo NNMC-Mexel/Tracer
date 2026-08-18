@@ -210,6 +210,32 @@ a {
   background: #f1fbfb !important;
 }
 
+.report-evidence-card {
+  border-left: 4px solid #087f8c !important;
+}
+
+.report-evidence-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.report-evidence-metrics {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.report-focused-row > td {
+  background: #e9f7f8 !important;
+}
+
+.report-employee-profile-head {
+  border-color: #b9dfe2 !important;
+  background: #f4fbfb !important;
+}
+
 .report-empty-guide .ant-card-body {
   padding: 48px 24px;
 }
@@ -232,6 +258,26 @@ a {
 }
 
 @media (max-width: 767px) {
+  .report-page {
+    width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  .report-page > *,
+  .report-filter-card .ant-space,
+  .report-filter-card .ant-space-item,
+  .report-filter-card .ant-space-item > div {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .report-filter-card .ant-select,
+  .report-filter-card .ant-picker {
+    width: 100% !important;
+    max-width: 100%;
+  }
+
   .report-overview-heading {
     align-items: flex-start;
     flex-direction: column;
@@ -277,5 +323,10 @@ a {
     flex-direction: column;
     gap: 2px;
     padding-block: 10px;
+  }
+
+  .report-evidence-head {
+    flex-direction: column;
+    gap: 10px;
   }
 }
