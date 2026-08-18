@@ -795,6 +795,18 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
   const pctTip = (c: { month: string; avgPercent: number | null; sessions: number }) =>
     `${monthLabel(c.month)}: ${c.avgPercent == null ? "нет проверок" : Math.round(c.avgPercent) + "%"}${c.sessions ? ` · ${c.sessions} пров.` : ""}`;
 
+  const openDepartmentEmployees = (department: DynDeptRow) => {
+    if (!department.departmentId || !canEmployee) return;
+    setDeptId(department.departmentId);
+    setMode("employee");
+  };
+
+  const openDepartmentDynamics = (departmentId?: number) => {
+    if (!departmentId) return;
+    setDeptId(departmentId);
+    setMode("criteria");
+  };
+
   const monthHead = months.map((m) => ({
     title: <Tooltip title={m}><span>{monthLabel(m)}</span></Tooltip>,
     key: m,
@@ -851,7 +863,14 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
       key: "department",
       fixed: "left",
       width: 190,
-      render: (department: string) => <span style={{ color: "#536873", fontSize: 12 }}>{department || "—"}</span>,
+      render: (department: string, row) => {
+        const canOpen = Boolean(row.departmentId);
+        return canOpen ? (
+          <Button type="link" size="small" className="report-inline-link" onClick={() => openDepartmentDynamics(row.departmentId)}>
+            {department} <RightOutlined />
+          </Button>
+        ) : <span style={{ color: "#536873", fontSize: 12 }}>{department || "—"}</span>;
+      },
     },
     ...monthHead.map((h) => ({
       ...h,
@@ -865,7 +884,18 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
   ];
 
   const deptColumns: ColumnsType<DynDeptRow> = [
-    { title: "Отдел", dataIndex: "name", key: "name", fixed: "left", width: 200, render: (t: string) => <span style={{ fontSize: 12 }}>{t}</span> },
+    {
+      title: "Отдел",
+      dataIndex: "name",
+      key: "name",
+      fixed: "left",
+      width: 220,
+      render: (t: string, row) => (
+        <span className={row.departmentId && canEmployee ? "report-row-link" : ""} style={{ fontSize: 12 }}>
+          {t} {row.departmentId && canEmployee ? <RightOutlined /> : null}
+        </span>
+      ),
+    },
     ...monthHead.map((h) => ({
       ...h,
       render: (_: unknown, r: DynDeptRow) => {
@@ -967,6 +997,18 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
         <Empty description={effectiveMode === "employee" ? "Нет проверенных сотрудников за период" : "Нет данных за выбранный период"} />
       ) : (
         <>
+          {deptId && (
+            <Card size="small" className="report-toolbar">
+              <Space wrap style={{ width: "100%", justifyContent: "space-between" }}>
+                <Breadcrumb items={[
+                  { title: <a onClick={() => setDeptId(undefined)}>Все отделы</a> },
+                  { title: deptName ?? "Отдел" },
+                  { title: effectiveMode === "employee" ? "Сотрудники" : "Показатели отдела" },
+                ]} />
+                <Button size="small" onClick={() => setDeptId(undefined)}>Показать все отделы</Button>
+              </Space>
+            </Card>
+          )}
           <Card size="small" className="report-section-card">
             <Space size="large" wrap>
               <Statistic title="Держится нарушение" value={cnt("persistent")} valueStyle={{ color: "#cf1322" }} />
@@ -978,7 +1020,7 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
           {effectiveMode === "employee" ? (
             <Card className="report-section-card" size="small" title={`Динамика по сотрудникам${deptName ? " — " + deptName : ""} (худшие сверху)`}>
               <Table<DynEmpRow>
-                rowKey="employeeId"
+                rowKey={(row) => `${row.employeeId}:${row.departmentId ?? row.department}`}
                 size="small"
                 pagination={{ pageSize: 50, showSizeChanger: true }}
                 scroll={{ x: "max-content" }}
@@ -1021,8 +1063,13 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
                 </div>
               </Card>
 
-              {!deptId && (data!.departments?.length ?? 0) > 1 && (
-                <Card className="report-section-card" size="small" title="Динамика по отделам (средний % за месяц)">
+              {!deptId && (data!.departments?.length ?? 0) > 0 && (
+                <Card
+                  className="report-section-card"
+                  size="small"
+                  title="Динамика по отделам (средний % за месяц)"
+                  extra={canEmployee ? <Text type="secondary">Нажмите отдел, чтобы открыть сотрудников</Text> : null}
+                >
                   <Table<DynDeptRow>
                     rowKey={(row) => row.departmentId ? `id:${row.departmentId}` : `snapshot:${row.name}`}
                     size="small"
@@ -1030,9 +1077,15 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
                     scroll={{ x: "max-content" }}
                     columns={deptColumns}
                     dataSource={data!.departments ?? []}
+                    onRow={(row) => ({
+                      className: row.departmentId && canEmployee ? "report-clickable-row" : "",
+                      onClick: () => openDepartmentEmployees(row),
+                    })}
                   />
                   <div style={{ fontSize: 11, color: "#999", marginTop: 6 }}>
-                    Выберите отдел выше, чтобы увидеть, какие именно пункты у него не выполняются.
+                    {canEmployee
+                      ? "Нажмите строку отдела, чтобы увидеть показатели его сотрудников. Для анализа причин переключитесь на «По пунктам»."
+                      : "Выберите отдел в фильтре выше, чтобы увидеть, какие именно пункты у него не выполняются."}
                   </div>
                 </Card>
               )}

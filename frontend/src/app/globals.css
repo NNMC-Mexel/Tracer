@@ -198,6 +198,13 @@ a {
   transition: color .15s ease;
 }
 
+.report-inline-link {
+  height: auto !important;
+  padding: 0 !important;
+  font-size: 12px !important;
+  font-weight: 600;
+}
+
 .report-context-card {
   color: #fff;
   border: 0 !important;

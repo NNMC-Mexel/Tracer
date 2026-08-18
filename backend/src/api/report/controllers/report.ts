@@ -552,7 +552,7 @@ export default {
     // критерий → месяц → счётчики; отдел → месяц → % сотрудников; сотрудник → месяц → %
     const cm = new Map<number, Map<string, Cnt>>();
     const dm = new Map<string, { id?: number; name: string; scores: Map<string, number[]>; sessions: Map<string, Set<number>> }>();
-    const em = new Map<number, { name: string; position: string; department: string; scores: Map<string, number[]> }>();
+    const em = new Map<string, { employeeId: number; name: string; position: string; departmentId?: number; department: string; scores: Map<string, number[]> }>();
 
     for (const sub of subjects) {
       const sid = sub.session?.id;
@@ -584,14 +584,17 @@ export default {
 
       const empId = sub.employee?.id;
       if (empId) {
-        if (!em.has(empId))
-          em.set(empId, {
+        const empKey = `${empId}:${dKey}`;
+        if (!em.has(empKey))
+          em.set(empKey, {
+            employeeId: empId,
             name: sub.employee?.fullName ?? sub.label ?? "—",
             position: sub.employee?.position ?? sub.positionSnapshot ?? "",
+            departmentId: dId,
             department: dName,
             scores: new Map(),
           });
-        const ee = em.get(empId)!;
+        const ee = em.get(empKey)!;
         if (score != null && Number.isFinite(score)) {
           if (!ee.scores.has(month)) ee.scores.set(month, []);
           ee.scores.get(month)!.push(score);
@@ -645,8 +648,8 @@ export default {
       .sort((a, b) => a.name.localeCompare(b.name));
 
     // по сотрудникам: средний % за месяц (худшие — сверху)
-    const employees = [...em.entries()]
-      .map(([id, e]) => {
+    const employees = [...em.values()]
+      .map((e) => {
         const cells = months.map((month) => {
           const arr = e.scores.get(month) ?? [];
           const avgP = arr.length ? Math.round((arr.reduce((a, b) => a + b, 0) / arr.length) * 10) / 10 : null;
@@ -654,9 +657,10 @@ export default {
         });
         const pts = cells.filter((x) => x.avgPercent != null).map((x) => x.avgPercent as number);
         return {
-          employeeId: id,
+          employeeId: e.employeeId,
           name: e.name,
           position: e.position,
+          departmentId: e.departmentId,
           department: e.department,
           cells,
           trend: classifyTrend(pts),

@@ -116,6 +116,7 @@ export interface DynEmpRow {
   employeeId: number;
   name: string;
   position: string;
+  departmentId?: number;
   department: string;
   cells: DynDeptCell[];
   trend: Trend;
