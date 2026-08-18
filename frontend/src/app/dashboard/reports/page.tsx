@@ -826,9 +826,9 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
     `${monthLabel(c.month)}: ${c.avgPercent == null ? "нет проверок" : Math.round(c.avgPercent) + "%"}${c.sessions ? ` · ${c.sessions} пров.` : ""}`;
 
   const openDepartmentEmployees = (department: DynDeptRow) => {
-    if (!department.departmentId || !canEmployee) return;
+    if (!department.departmentId) return;
     setDeptId(department.departmentId);
-    setMode("employee");
+    setMode(canEmployee ? "employee" : "criteria");
   };
 
   const openDepartmentDynamics = (departmentId?: number) => {
@@ -921,8 +921,8 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
       fixed: "left",
       width: 220,
       render: (t: string, row) => (
-        <span className={row.departmentId && canEmployee ? "report-row-link" : ""} style={{ fontSize: 12 }}>
-          {t} {row.departmentId && canEmployee ? <RightOutlined /> : null}
+        <span className={row.departmentId ? "report-row-link" : ""} style={{ fontSize: 12 }}>
+          {t} {row.departmentId ? <RightOutlined /> : null}
         </span>
       ),
     },
@@ -1117,7 +1117,7 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
                   className="report-section-card"
                   size="small"
                   title="Динамика по отделам (средний % за месяц)"
-                  extra={canEmployee ? <Text type="secondary">Нажмите отдел, чтобы открыть сотрудников</Text> : null}
+                  extra={<Text type="secondary">Нажмите отдел для детализации</Text>}
                 >
                   <Table<DynDeptRow>
                     rowKey={(row) => row.departmentId ? `id:${row.departmentId}` : `snapshot:${row.name}`}
@@ -1127,14 +1127,14 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
                     columns={deptColumns}
                     dataSource={data!.departments ?? []}
                     onRow={(row) => ({
-                      className: row.departmentId && canEmployee ? "report-clickable-row" : "",
+                      className: row.departmentId ? "report-clickable-row" : "",
                       onClick: () => openDepartmentEmployees(row),
                     })}
                   />
                   <div style={{ fontSize: 11, color: "#999", marginTop: 6 }}>
                     {canEmployee
                       ? "Нажмите строку отдела, чтобы увидеть показатели его сотрудников. Для анализа причин переключитесь на «По пунктам»."
-                      : "Выберите отдел в фильтре выше, чтобы увидеть, какие именно пункты у него не выполняются."}
+                      : "Нажмите строку отдела, чтобы увидеть его показатели и проблемные пункты."}
                   </div>
                 </Card>
               )}
