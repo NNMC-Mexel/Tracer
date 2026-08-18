@@ -805,10 +805,10 @@ function DynamicsTab({ from, to, periodLabel, programId, ready }: { from: string
     p == null
       ? { bg: "#f3f6f7", text: "#9aabb3", border: "#e1e8eb" }
       : p >= 85
-        ? { bg: "#eaf6ef", text: "#26734c", border: "#cde8d7" }
+        ? { bg: "#52c41a", text: "#ffffff", border: "#389e0d" }
         : p >= 60
-          ? { bg: "#fff7e8", text: "#9b6618", border: "#f1dfb8" }
-          : { bg: "#fff0f0", text: "#b83232", border: "#f2d0d0" };
+          ? { bg: "#faad14", text: "#4a3400", border: "#d48806" }
+          : { bg: "#ff4d4f", text: "#ffffff", border: "#cf1322" };
   const box = (p: number | null) => (
     <div style={{ background: cColor(p).bg, color: cColor(p).text, border: `1px solid ${cColor(p).border}`, borderRadius: 6, fontSize: 11, padding: "4px 0", fontWeight: 700, textAlign: "center" }}>
       {p == null ? "—" : Math.round(p)}

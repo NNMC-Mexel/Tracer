@@ -16,9 +16,9 @@ export default function Providers({ children }: { children: ReactNode }) {
         token: {
           colorPrimary: "#087f8c",
           colorInfo: "#087f8c",
-          colorSuccess: "#2f855a",
-          colorWarning: "#b7791f",
-          colorError: "#c53030",
+          colorSuccess: "#52c41a",
+          colorWarning: "#faad14",
+          colorError: "#ff4d4f",
           colorText: "#162a3a",
           colorTextSecondary: "#667985",
           colorBorderSecondary: "#e1e8eb",
